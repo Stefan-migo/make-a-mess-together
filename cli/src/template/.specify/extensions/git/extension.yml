@@ -1,0 +1,21 @@
+schema_version: "1.0"
+extension:
+  id: git
+  name: "Git Branching Workflow"
+  version: "1.0.0"
+  description: "Feature branch creation, numbering, validation, and Git remote detection"
+  author: spec-kit-core
+  requires:
+    speckit_version: ">=0.2.0"
+  provides:
+    commands:
+      - name: speckit.git.feature
+        file: commands/speckit.git.feature.md
+      - name: speckit.git.validate
+        file: commands/speckit.git.validate.md
+      - name: speckit.git.remote
+        file: commands/speckit.git.remote.md
+      - name: speckit.git.initialize
+        file: commands/speckit.git.initialize.md
+      - name: speckit.git.commit
+        file: commands/speckit.git.commit.md
