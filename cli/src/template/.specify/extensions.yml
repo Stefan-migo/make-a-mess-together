@@ -1,0 +1,94 @@
+installed: []
+settings:
+  auto_execute_hooks: true
+hooks:
+  before_constitution:
+  - extension: git
+    command: speckit.git.initialize
+    enabled: true
+    optional: false
+  before_specify:
+  - extension: git
+    command: speckit.git.feature
+    enabled: true
+    optional: false
+  before_clarify:
+  - extension: git
+    command: speckit.git.commit
+    enabled: true
+    optional: true
+  before_plan:
+  - extension: git
+    command: speckit.git.commit
+    enabled: true
+    optional: true
+  before_tasks:
+  - extension: git
+    command: speckit.git.commit
+    enabled: true
+    optional: true
+  before_implement:
+  - extension: git
+    command: speckit.git.commit
+    enabled: true
+    optional: true
+  before_checklist:
+  - extension: git
+    command: speckit.git.commit
+    enabled: true
+    optional: true
+  before_analyze:
+  - extension: git
+    command: speckit.git.commit
+    enabled: true
+    optional: true
+  before_taskstoissues:
+  - extension: git
+    command: speckit.git.commit
+    enabled: true
+    optional: true
+  after_constitution:
+  - extension: git
+    command: speckit.git.commit
+    enabled: true
+    optional: true
+  after_specify:
+  - extension: git
+    command: speckit.git.commit
+    enabled: true
+    optional: true
+  after_clarify:
+  - extension: git
+    command: speckit.git.commit
+    enabled: true
+    optional: true
+  after_plan:
+  - extension: git
+    command: speckit.git.commit
+    enabled: true
+    optional: true
+  after_tasks:
+  - extension: git
+    command: speckit.git.commit
+    enabled: true
+    optional: true
+  after_implement:
+  - extension: git
+    command: speckit.git.commit
+    enabled: true
+    optional: true
+  after_checklist:
+  - extension: git
+    command: speckit.git.commit
+    enabled: true
+    optional: true
+  after_analyze:
+  - extension: git
+    command: speckit.git.commit
+    enabled: true
+    optional: true
+  after_taskstoissues:
+  - extension: git
+    command: speckit.git.commit
+    enabled: true
+    optional: true
