@@ -1,0 +1,759 @@
+{
+  "directed": false,
+  "multigraph": false,
+  "graph": {},
+  "nodes": [
+    {
+      "id": "doc_agents_md",
+      "label": "AGENTS",
+      "file_type": "document",
+      "source_file": "AGENTS.md",
+      "source_location": null
+    },
+    {
+      "id": "doc_design_md",
+      "label": "DESIGN",
+      "file_type": "document",
+      "source_file": "DESIGN.md",
+      "source_location": null
+    },
+    {
+      "id": "doc_readme_md",
+      "label": "README",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": null
+    },
+    {
+      "id": "doc_system_map_md",
+      "label": "SYSTEM-MAP",
+      "file_type": "document",
+      "source_file": "SYSTEM-MAP.md",
+      "source_location": null
+    },
+    {
+      "id": "doc_user_guide_md",
+      "label": "USER-GUIDE",
+      "file_type": "document",
+      "source_file": "USER-GUIDE.md",
+      "source_location": null
+    },
+    {
+      "id": "doc_docs_competitive_analysis_md",
+      "label": "COMPETITIVE-ANALYSIS",
+      "file_type": "document",
+      "source_file": "docs/COMPETITIVE-ANALYSIS.md",
+      "source_location": null
+    },
+    {
+      "id": "doc_schema_agent_behavior_md",
+      "label": "agent-behavior",
+      "file_type": "document",
+      "source_file": "schema/agent-behavior.md",
+      "source_location": null
+    },
+    {
+      "id": "doc_schema_editor_policy_md",
+      "label": "editor-policy",
+      "file_type": "document",
+      "source_file": "schema/editor-policy.md",
+      "source_location": null
+    },
+    {
+      "id": "doc_schema_wiki_schema_md",
+      "label": "wiki-schema",
+      "file_type": "document",
+      "source_file": "schema/wiki-schema.md",
+      "source_location": null
+    },
+    {
+      "id": "doc_wiki_index_md",
+      "label": "index",
+      "file_type": "document",
+      "source_file": "wiki/index.md",
+      "source_location": null
+    },
+    {
+      "id": "doc_wiki_log_md",
+      "label": "log",
+      "file_type": "document",
+      "source_file": "wiki/log.md",
+      "source_location": null
+    },
+    {
+      "id": "doc_wiki_engram__sessions_manual_save_cortex_plugin_md",
+      "label": "manual-save-cortex-plugin",
+      "file_type": "document",
+      "source_file": "wiki/engram/_sessions/manual-save-cortex-plugin.md",
+      "source_location": null
+    },
+    {
+      "id": "doc_wiki_engram_cortex_plugin_architecture_cortex_wiki_created_1_md",
+      "label": "cortex-wiki-created-1",
+      "file_type": "document",
+      "source_file": "wiki/engram/cortex-plugin/architecture/cortex-wiki-created-1.md",
+      "source_location": null
+    },
+    {
+      "id": "doc_wiki_engram_cortex_plugin_architecture_graphify_gsd_2_md",
+      "label": "graphify-gsd-2",
+      "file_type": "document",
+      "source_file": "wiki/engram/cortex-plugin/architecture/graphify-gsd-2.md",
+      "source_location": null
+    },
+    {
+      "id": "doc_wiki_engram_cortex_plugin_architecture_system_map_self_maintenance_3_md",
+      "label": "system-map-self-maintenance-3",
+      "file_type": "document",
+      "source_file": "wiki/engram/cortex-plugin/architecture/system-map-self-maintenance-3.md",
+      "source_location": null
+    },
+    {
+      "id": "doc_wiki_engram_cortex_plugin_architecture_planning_with_files_4_md",
+      "label": "planning-with-files-4",
+      "file_type": "document",
+      "source_file": "wiki/engram/cortex-plugin/architecture/planning-with-files-4.md",
+      "source_location": null
+    },
+    {
+      "id": "doc_wiki_engram_cortex_plugin_architecture_bootstrap_template_system_5_md",
+      "label": "bootstrap-template-system-5",
+      "file_type": "document",
+      "source_file": "wiki/engram/cortex-plugin/architecture/bootstrap-template-system-5.md",
+      "source_location": null
+    },
+    {
+      "id": "doc_wiki_engram_cortex_plugin_architecture_readme_md_6_md",
+      "label": "readme-md-6",
+      "file_type": "document",
+      "source_file": "wiki/engram/cortex-plugin/architecture/readme-md-6.md",
+      "source_location": null
+    },
+    {
+      "id": "doc_wiki_engram_cortex_plugin_architecture_intelligent_bootstrap_7_md",
+      "label": "intelligent-bootstrap-7",
+      "file_type": "document",
+      "source_file": "wiki/engram/cortex-plugin/architecture/intelligent-bootstrap-7.md",
+      "source_location": null
+    },
+    {
+      "id": "doc_wiki_engram_cortex_plugin_architecture_install_script_readme_clarity_8_md",
+      "label": "install-script-readme-clarity-8",
+      "file_type": "document",
+      "source_file": "wiki/engram/cortex-plugin/architecture/install-script-readme-clarity-8.md",
+      "source_location": null
+    },
+    {
+      "id": "doc_wiki_engram_cortex_plugin_architecture_professional_agent_team_smart_bootstrap_9_md",
+      "label": "professional-agent-team-smart-bootstrap-9",
+      "file_type": "document",
+      "source_file": "wiki/engram/cortex-plugin/architecture/professional-agent-team-smart-bootstrap-9.md",
+      "source_location": null
+    }
+  ],
+  "links": [
+    {
+      "source": "doc_agents_md",
+      "target": "doc_design_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_agents_md",
+      "target": "doc_readme_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_agents_md",
+      "target": "doc_system_map_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_agents_md",
+      "target": "doc_user_guide_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_design_md",
+      "target": "doc_readme_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_design_md",
+      "target": "doc_system_map_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_design_md",
+      "target": "doc_user_guide_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_readme_md",
+      "target": "doc_system_map_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_readme_md",
+      "target": "doc_user_guide_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_system_map_md",
+      "target": "doc_user_guide_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_schema_agent_behavior_md",
+      "target": "doc_schema_editor_policy_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_schema_agent_behavior_md",
+      "target": "doc_schema_wiki_schema_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_schema_editor_policy_md",
+      "target": "doc_schema_wiki_schema_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_index_md",
+      "target": "doc_wiki_log_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_cortex_wiki_created_1_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_graphify_gsd_2_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_cortex_wiki_created_1_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_system_map_self_maintenance_3_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_cortex_wiki_created_1_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_planning_with_files_4_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_cortex_wiki_created_1_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_bootstrap_template_system_5_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_cortex_wiki_created_1_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_readme_md_6_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_cortex_wiki_created_1_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_intelligent_bootstrap_7_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_cortex_wiki_created_1_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_install_script_readme_clarity_8_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_cortex_wiki_created_1_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_professional_agent_team_smart_bootstrap_9_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_graphify_gsd_2_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_system_map_self_maintenance_3_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_graphify_gsd_2_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_planning_with_files_4_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_graphify_gsd_2_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_bootstrap_template_system_5_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_graphify_gsd_2_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_readme_md_6_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_graphify_gsd_2_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_intelligent_bootstrap_7_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_graphify_gsd_2_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_install_script_readme_clarity_8_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_graphify_gsd_2_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_professional_agent_team_smart_bootstrap_9_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_system_map_self_maintenance_3_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_planning_with_files_4_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_system_map_self_maintenance_3_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_bootstrap_template_system_5_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_system_map_self_maintenance_3_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_readme_md_6_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_system_map_self_maintenance_3_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_intelligent_bootstrap_7_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_system_map_self_maintenance_3_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_install_script_readme_clarity_8_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_system_map_self_maintenance_3_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_professional_agent_team_smart_bootstrap_9_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_planning_with_files_4_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_bootstrap_template_system_5_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_planning_with_files_4_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_readme_md_6_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_planning_with_files_4_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_intelligent_bootstrap_7_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_planning_with_files_4_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_install_script_readme_clarity_8_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_planning_with_files_4_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_professional_agent_team_smart_bootstrap_9_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_bootstrap_template_system_5_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_readme_md_6_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_bootstrap_template_system_5_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_intelligent_bootstrap_7_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_bootstrap_template_system_5_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_install_script_readme_clarity_8_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_bootstrap_template_system_5_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_professional_agent_team_smart_bootstrap_9_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_readme_md_6_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_intelligent_bootstrap_7_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_readme_md_6_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_install_script_readme_clarity_8_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_readme_md_6_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_professional_agent_team_smart_bootstrap_9_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_intelligent_bootstrap_7_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_install_script_readme_clarity_8_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_intelligent_bootstrap_7_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_professional_agent_team_smart_bootstrap_9_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_install_script_readme_clarity_8_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_professional_agent_team_smart_bootstrap_9_md",
+      "relation": "co_located",
+      "confidence": "EXTRACTED",
+      "source_file": null,
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram__sessions_manual_save_cortex_plugin_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_cortex_wiki_created_1_md",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "wiki/engram/_sessions/manual-save-cortex-plugin.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram__sessions_manual_save_cortex_plugin_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_graphify_gsd_2_md",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "wiki/engram/_sessions/manual-save-cortex-plugin.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram__sessions_manual_save_cortex_plugin_md",
+      "target": "doc_system_map_md",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "wiki/engram/_sessions/manual-save-cortex-plugin.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram__sessions_manual_save_cortex_plugin_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_planning_with_files_4_md",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "wiki/engram/_sessions/manual-save-cortex-plugin.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram__sessions_manual_save_cortex_plugin_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_bootstrap_template_system_5_md",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "wiki/engram/_sessions/manual-save-cortex-plugin.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram__sessions_manual_save_cortex_plugin_md",
+      "target": "doc_readme_md",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "wiki/engram/_sessions/manual-save-cortex-plugin.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram__sessions_manual_save_cortex_plugin_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_intelligent_bootstrap_7_md",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "wiki/engram/_sessions/manual-save-cortex-plugin.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram__sessions_manual_save_cortex_plugin_md",
+      "target": "doc_wiki_engram_cortex_plugin_architecture_professional_agent_team_smart_bootstrap_9_md",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "wiki/engram/_sessions/manual-save-cortex-plugin.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_cortex_wiki_created_1_md",
+      "target": "doc_wiki_engram__sessions_manual_save_cortex_plugin_md",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "wiki/engram/cortex-plugin/architecture/cortex-wiki-created-1.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_graphify_gsd_2_md",
+      "target": "doc_wiki_engram__sessions_manual_save_cortex_plugin_md",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "wiki/engram/cortex-plugin/architecture/graphify-gsd-2.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_system_map_self_maintenance_3_md",
+      "target": "doc_wiki_engram__sessions_manual_save_cortex_plugin_md",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "wiki/engram/cortex-plugin/architecture/system-map-self-maintenance-3.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_planning_with_files_4_md",
+      "target": "doc_wiki_engram__sessions_manual_save_cortex_plugin_md",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "wiki/engram/cortex-plugin/architecture/planning-with-files-4.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_bootstrap_template_system_5_md",
+      "target": "doc_wiki_engram__sessions_manual_save_cortex_plugin_md",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "wiki/engram/cortex-plugin/architecture/bootstrap-template-system-5.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_readme_md_6_md",
+      "target": "doc_wiki_engram__sessions_manual_save_cortex_plugin_md",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "wiki/engram/cortex-plugin/architecture/readme-md-6.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_intelligent_bootstrap_7_md",
+      "target": "doc_wiki_engram__sessions_manual_save_cortex_plugin_md",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "wiki/engram/cortex-plugin/architecture/intelligent-bootstrap-7.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_install_script_readme_clarity_8_md",
+      "target": "doc_wiki_engram__sessions_manual_save_cortex_plugin_md",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "wiki/engram/cortex-plugin/architecture/install-script-readme-clarity-8.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "doc_wiki_engram_cortex_plugin_architecture_professional_agent_team_smart_bootstrap_9_md",
+      "target": "doc_wiki_engram__sessions_manual_save_cortex_plugin_md",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "wiki/engram/cortex-plugin/architecture/professional-agent-team-smart-bootstrap-9.md",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ]
+}
