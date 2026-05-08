@@ -1,406 +1,207 @@
-# Cortex — System Map
+# Cortex 2.5 — System Map
 
-How every component of the Cortex multi-agent system works, when to use it, and how to maintain it.
+How every component of the Cortex 2.5 executive system works, when to use it, and how to maintain it.
 
 ---
 
-## How to Start a New Project from Cortex
+## Architecture
 
 ```
-/new-project
+                         ┌──────────────────────────┐
+                         │  FRONTAL LOBE (Planning)  │
+                         │     Spec-Kit /speckit.*   │
+                         │     .specify/ artifacts   │
+                         │     @Cortex-Planner       │
+                         └──────────┬───────────────┘
+                                    │ hands off spec
+          ┌─────────────────────────┼──────────────────────────┐
+          │                         │                          │
+   ┌──────▼──────────┐    ┌───────▼──────────┐    ┌─────────▼─────────┐
+   │  PARIETAL LOBE   │    │  HIPPOCAMPUS     │    │ OCCIPITAL LOBE    │
+   │  (Spatial)       │    │  (Memory)        │    │ (Archive)         │
+   │                   │    │                   │    │                   │
+   │  Graphify        │    │  Engram MCP      │    │  wiki/ (export)   │
+   │  query_graph     │    │  mem_save/search │    │  .md snapshots    │
+   │  god_nodes       │    │  mem_judge       │    │  from Engram      │
+   │  graph.json      │    │  session lifecycle│   │                   │
+   └──────────────────┘    └───────────────────┘    └──────────────────┘
+                                    │
+                                    │
+   @Cortex-Developer (executes across all lobes via 5-Step Gate)
 ```
 
-The agent runs a 5-phase intelligent bootstrap:
-
-1. **Pre-flight Check** — Verifies Node.js, GSD, Graphify, Planning w/ Files are functional
-2. **Discovery** — Structured interview: identity, tech stack, domain, references, team size
-3. **Deep Research** — Spawns @researcher for tech stack validation, architecture patterns, industry landscape, and reference analysis
-4. **Agent Team Architecture** — Proposes specialized team: primary agents ({Name}Build, {Name}Plan) + role-based subagents (backend, frontend, database, security, devops, qa) + MCP servers + design system
-5. **Generate** — Creates all project files, agent definitions, and project configuration
-
-**Step 1:** Clone the Cortex repo into your new project directory
-```bash
-git clone <cortex-repo> my-new-project
-cd my-new-project
-rm -rf .git
-git init
-```
-
-**Step 2:** Run the setup script (optional — handles boilerplate files)
-```bash
-./scripts/setup.sh
-```
-
-**Step 3:** Open OpenCode and tell the agent to adapt
-```
-I just set up a new project called MyApp. It's a web app built with TypeScript and React.
-Adapt this system for my project.
-```
-
-**Step 4:** The agent reads the bootstrap skill, asks you questions, and self-modifies.
-
-## Architecture Overview
+## Identity Quick Reference
 
 ```
-                        ┌──────────────────────┐
-                        │       THE BRAIN       │
-                        │    AGENTS.md (rules)  │
-                        │  opencode.json (cfg)  │
-                        │  schema/ (policies)   │
-                        └──────┬───────────────┘
-                               │ loads every session
-          ┌────────────────────┼────────────────────┬──────────────────┐
-          │                    │                    │                  │
-   ┌──────▼──────┐    ┌───────▼───────┐    ┌───────▼───────┐  ┌──────▼───────┐
-   │   PLANNER   │    │  DISCIPLINE   │    │  KNOWLEDGE    │  │ CODE MAPPER │
-   │             │    │               │    │               │  │              │
-   │  GSD cmds   │    │Planning-Files │    │  wiki/        │  │  Graphify    │
-   │  .planning/ │    │ re-read plan  │    │  @ingest      │  │  /graphify   │
-   │             │    │ log errors    │    │  @lint        │  │              │
-   └─────────────┘    │ verify before │    └───────┬───────┘  └──────────────┘
-          │           │  stopping     │           │                    │
-          │           └───────────────┘           │                    │
-          │                    │             ┌─────▼──────┐           │
-          │                    │             │  MEMORY    │           │
-          │                    │             │            │           │
-          └────────────────────┼─────────────┤ STATE.md   ├───────────┘
-                               │             │ log.md     │
-                               │             │ sessions/  │
-                               │             └────────────┘
-                               │
-                         ┌─────▼──────┐
-                         │   DESIGN   │
-                         │ DESIGN.md  │
-                         └────────────┘
+┌──────────────────┬──────────────────────┬────────────────────┐
+│   IDENTITY       │  @Cortex-Planner     │ @Cortex-Developer  │
+├──────────────────┼──────────────────────┼────────────────────┤
+│   Permissions    │  Read-only + research│ Full (edit, bash)  │
+│   Model          │  Claude Sonnet 4     │ Claude Sonnet 4    │
+│   Primary tool   │  /speckit.specify    │ /speckit.implement │
+│   Memory         │  mem_session_start   │ mem_save results   │
+│   Code access    │  Read only           │ Edit + write       │
+│   When to use    │  Planning, research  │ Building, testing  │
+└──────────────────┴──────────────────────┴────────────────────┘
 ```
 
 ---
 
-## 1. THE BRAIN (AGENTS.md + opencode.json + schema/)
+## 1. FRONTAL LOBE — Spec-Kit (Planning)
 
-**What it is:** The configuration that loads every session. It tells the agent:
-- What the project is about
-- What files exist and what they mean
-- What agents/skills/tools are available
-- How to behave
+**What it is:** A structured spec-driven development workflow. Specs define WHAT before HOW.
 
-**How to use it:** It loads automatically when OpenCode starts. You don't invoke it directly.
+**Commands (invoked by @Cortex-Planner):**
 
-**When to use it:** Every session. The agent reads it without you asking.
+| Command | Purpose | Output |
+|---------|---------|--------|
+| `/speckit.constitution` | Define project principles | `.specify/memory/constitution.md` |
+| `/speckit.specify` | Write feature spec | `.specify/specs/<n>-<name>.md` |
+| `/speckit.clarify` | Resolve ambiguities | Clarifications section added |
+| `/speckit.plan` | Create tech plan | `.specify/plans/<n>-<name>.md` |
+| `/speckit.tasks` | Break into tasks | `.specify/tasks/<n>-<name>.md` |
+| `/speckit.implement` | Execute all tasks | Built code |
+| `/speckit.analyze` | Consistency check | Analysis report |
+| `/speckit.checklist` | Quality validation | Checklist |
+| `/speckit.taskstoissues` | Export as GitHub issues | Issues |
 
-**How to maintain it:**
-- Run `/init` in OpenCode to regenerate AGENTS.md
-- Edit `schema/wiki-schema.md`, `schema/agent-behavior.md`, `schema/editor-policy.md` to change policies
-- Edit `opencode.json` to add/modify agents, permissions, MCP servers
-
----
-
-## 2. PLANNER (GSD commands)
-
-**What it is:** An automated system for planning and building features using slash commands.
-
-**Tools installed:** 65 commands in `.opencode/command/`, 33 subagents in `.opencode/agents/`
-
-### How to use it:
-
-| Step | Command | What it does |
-|------|---------|-------------|
-| Start | `/gsd-new-project` | Creates PROJECT.md, ROADMAP.md, STATE.md |
-| Discuss | `/gsd-discuss-phase 1` | Captures your preferences before planning |
-| Plan | `/gsd-plan-phase 1` | Researches + creates task plans |
-| Build | `/gsd-execute-phase 1` | Implements in parallel waves, atomic commits |
-| Verify | `/gsd-verify-work 1` | Walks through testable deliverables |
-| Ship | `/gsd-ship 1` | Creates PR |
-
-### When to use it:
-- **New features** that need multiple steps
-- **Complex tasks** where you want automated planning
-- **Brownfield projects** — first run `/gsd-map-codebase` to analyze existing code
-
-### When NOT to use it:
-- Simple 1-2 file changes (use Build mode directly)
-- Research/knowledge work (use agents directly)
-
-### How to maintain it:
-```
-/gsd-update
-```
+**When to use:** Every feature, every task. Always spec first, then build.
 
 ---
 
-## 3. PLANNING DISCIPLINE (Planning with Files)
+## 2. PARIETAL LOBE — Graphify (Code Understanding)
 
-**What it is:** A behavioral layer that tells the agent *how* to work during planning sessions — not *what* to build, but *how* to behave. It complements GSD by adding context discipline.
+**What it is:** A knowledge graph that shows how everything in your codebase connects.
 
-**Skill:** `skill({name:"planning-with-files"})`
+**Commands:**
 
-### Core Principles
+| Command | When |
+|---------|------|
+| `python3 -m graphify.serve wiki/graph/graph.json` | Start graph MCP server |
+| `query_graph` | Query for relevant nodes before editing |
+| `god_nodes` | Find highest-degree concepts |
+| `/graphify . --update` | Rebuild graph after code changes |
 
-| Rule | What it means |
-|------|---------------|
-| **Create Plan First** | Never start a complex task without a `task_plan.md` |
-| **2-Action Rule** | Save findings to `findings.md` after every 2 view/browser operations |
-| **Log ALL Errors** | Every error goes into the plan file — they help avoid repetition |
-| **Never Repeat Failures** | Track attempts, mutate approach |
+**Output:** `wiki/graph/` — graph.html, GRAPH_REPORT.md, graph.json
 
-### How it works
-When loaded, the skill adds these behaviors to planning sessions:
-
-1. Create 3 files for every complex task:
-   - `task_plan.md` → Track phases and progress with checkboxes
-   - `findings.md` → Store research and findings
-   - `progress.md` → Session log and test results
-
-2. Re-read the plan before major decisions (PreToolUse behavior)
-3. Remind to update status after file writes (PostToolUse behavior)
-4. Verify completion before stopping (Stop behavior)
-
-### When to use it:
-- **Multi-step tasks** (3+ steps)
-- **Research tasks** that span many tool calls
-- **Building/creating** complex features
-- **Tasks spanning multiple sessions**
-
-### When NOT to use it:
-- Simple questions
-- Single-file edits
-- Quick lookups
-
-### How to maintain it:
-The skill is loaded on-demand — no maintenance needed. Update via:
-```
-npx skills add OthmanAdi/planning-with-files --skill planning-with-files -g
-```
+**Mandatory use:** BEFORE every code edit session, run query_graph to understand what you're touching.
 
 ---
 
-## 4. KNOWLEDGE BASE (wiki/)
+## 3. HIPPOCAMPUS — Engram (Memory)
 
-**What it is:** A persistent markdown wiki that compounds knowledge over time. The agent writes it; you read it.
+**What it is:** Persistent SQLite memory with FTS5 search, session lifecycle, and conflict detection.
 
-**Files:**
-| File | Purpose |
-|------|---------|
-| `wiki/index.md` | Catalog of all wiki pages |
-| `wiki/log.md` | Chronological activity log |
-| `wiki/concepts/` | Technology and domain concepts |
-| `wiki/sources/` | Source document summaries |
-| `wiki/sessions/` | Session summaries |
-| `wiki/decisions/` | Architecture decisions (ADRs) |
+**Tools (19 MCP tools):**
 
-### How to use it:
+| Category | Tools |
+|----------|-------|
+| Save | `mem_save`, `mem_update`, `mem_delete`, `mem_suggest_topic_key` |
+| Search | `mem_search`, `mem_context`, `mem_timeline`, `mem_get_observation` |
+| Sessions | `mem_session_start`, `mem_session_end`, `mem_session_summary`, `mem_save_prompt` |
+| Utilities | `mem_stats`, `mem_doctor`, `mem_capture_passive`, `mem_current_project` |
+| Conflict | `mem_judge`, `mem_compare`, `mem_merge_projects` |
 
-| Action | How | What happens |
-|--------|-----|-------------|
-| Add knowledge | `@ingest-agent Ingest this article from raw/` | Agent reads source, writes wiki pages, updates index + log |
-| Find knowledge | Ask naturally: "What do we know about auth?" | Agent uses wiki-query skill, searches index.md, drills into pages |
-| Health check | `@lint-agent Run a full wiki lint` | Agent checks contradictions, orphans, broken links, stale claims |
-
-### When to use it:
-- **Ingest**: After every significant work session or when you add a source document
-- **Query**: Whenever you need context about the project
-- **Lint**: Weekly, or when you notice wiki is getting messy
-
-### How to maintain it:
-```
-@lint-agent Run a full wiki lint
-```
-Then ask:
-```
-@ingest-agent Fix the issues found by lint
-```
+**Always save:** decisions, bugfixes, patterns, architecture insights, discoveries, learnings.
 
 ---
 
-## 5. CODE MAPPER (Graphify)
+## 4. OCCIPITAL LOBE — Wiki (Obsidian Archive)
 
-**What it is:** A tool that reads your codebase and builds a knowledge graph showing how everything connects.
+**What it is:** An Obsidian-readable snapshot of Engram memory. Generated at session end via `scripts/engram-export-wiki.sh`.
 
-**Command:** `/graphify .`
+**Structure:**
+```
+wiki/
+├── index.md       — Auto-generated catalog
+├── log.md         — Chronological export log
+├── concepts/      — Technology & domain concepts
+├── entities/      — Code entities
+├── sources/       — Source document summaries
+├── sessions/      — Session summaries
+├── decisions/     — ADRs
+├── dashboards/    — Automated overviews
+└── graph/         — Graphify output (separate)
+```
 
-**Output:**
-| File | What it is |
-|------|------------|
-| `wiki/graph/graph.html` | Interactive visualization (open in browser) |
-| `wiki/graph/GRAPH_REPORT.md` | Text summary with god nodes, communities, surprises |
-| `wiki/graph/graph.json` | Machine-readable graph data |
-
-### How to use it:
-
-| Action | Command | When |
-|--------|---------|------|
-| First run | `/graphify .` | Project start, to understand the codebase |
-| Update | `/graphify . --update` | After major code changes |
-| Focus | `/graphify ./packages/core` | To analyze a specific area |
-| Query | `/graphify query "how does auth work?"` | To ask specific questions |
-
-### When to use it:
-- **Starting a new project** you didn't write
-- **After major refactors** to see the new structure
-- **Before planning** to understand what exists
-- **When exploring** an unfamiliar module
-
-### How to maintain it:
-Re-run periodically. The SHA256 cache means it only reprocesses changed files.
+**Export lifecycle:** Engram → `engram export` → `render-engram-to-wiki.mjs` → `wiki/` .md files.
 
 ---
 
-## 6. DESIGN SYSTEM (DESIGN.md)
+## 5. EXECUTION DISCIPLINE (5-Step Gate + Git Hook)
 
-**What it is:** A markdown file that defines how the UI should look.
-
-**File:** `DESIGN.md`
-
-### How to use it:
-The agent reads DESIGN.md automatically when generating UI. To use it:
+### 5-Step Gate (built into @Cortex-Developer prompt)
 ```
-Build me a settings page using the design system in DESIGN.md
+Step 1: GRAPH CHECK — query_graph before any edit
+Step 2: ATOMIC COMMIT — one concern per commit, ≤5 files
+Step 3: VERIFY — lint + typecheck + tests (block on failure)
+Step 4: SPEC CHECK — /speckit.analyze after completion
+Step 5: MEMORY — mem_save key learnings
 ```
 
-### When to use it:
-Whenever you ask the agent to build UI components, pages, or interfaces.
-
-### How to maintain it:
-Edit `DESIGN.md` to change colors, typography, spacing, component styles.
+### Git Hook (structural enforcement)
+`.git/hooks/pre-commit` rejects commits touching >5 files. Keeps atomic discipline mechanical, not just aspirational.
 
 ---
 
-## 7. CODE QUALITY (Reviewer + Debugger + Sec-auditor)
+## 6. CODE-SANDBOX (execute_script)
 
-**What they are:** Specialized agents for reviewing, debugging, and auditing code.
+**What it is:** A tool that runs TypeScript/JavaScript in a Node.js sandbox for multi-step logic.
 
-| Agent | Command | What it does |
-|-------|---------|-------------|
-| Reviewer | `@reviewer Review the auth changes` | Checks for bugs, security, performance, style |
-| Debugger | `@debugger Login fails when email unverified` | Root cause analysis and fix |
-| Sec-auditor | `@sec-auditor Audit our API endpoints` | Finds vulnerabilities |
+**When to use:**
+- Prototyping algorithms
+- Data transformation / validation
+- Running multi-step logic that's impractical as one-liner bash
+- Testing TypeScript snippets
 
-### When to use them:
-| Agent | Use before... | Use when... |
-|-------|---------------|-------------|
-| Reviewer | Committing code | You want a second pair of eyes |
-| Debugger | Fixing a bug | You don't know what's causing it |
-| Sec-auditor | Releasing | Handling auth, data, payments |
-
-### How to maintain them:
-Edit the `.md` files in `.opencode/agents/` to change their behavior or focus areas.
-
----
-
-## 8. MEMORY (wiki/log.md + .planning/STATE.md + wiki/sessions/)
-
-**What it is:** The system that remembers what happened across sessions.
-
-| File | What it remembers |
-|------|-------------------|
-| `.planning/STATE.md` | Current position, decisions, blockers |
-| `wiki/log.md` | Chronological activity (grep-parseable) |
-| `wiki/sessions/` | Detailed session summaries |
-
-### How to use it:
-The agent should read STATE.md and log.md at session start automatically. If it doesn't:
-```
-Read STATE.md and log.md to restore context
-```
-
-### When to use it:
-- **Session start**: Agent reads memory files
-- **Session end**: Agent should write to log.md, STATE.md, and sessions/
-
-### How to maintain it:
-```
-@ingest-agent Before I finish, update STATE.md and append to log.md
-```
-
----
-
-## 9. RESEARCH (Researcher agent)
-
-**What it is:** A subagent specialized for deep investigation.
-
-**Command:** `@researcher <question>`
-
-**Example:**
-```
-@researcher Compare Redis vs PostgreSQL for session storage
-```
-
-**Output:** Research saved to `wiki/sessions/` or can be used inline.
-
-### When to use it:
-- Before making architecture decisions
-- When choosing between libraries or approaches
-- When you need to understand a new technology
-
-### How to maintain it:
-Edit `.opencode/agents/researcher.md` to change research depth or output format.
-
----
-
-## 10. EXTERNAL TOOLS (MCP Servers)
-
-**What they are:** MCP (Model Context Protocol) servers that give the agent access to external services.
-
-**Config:** `opencode.json` under `mcp`. Template: `.opencode/mcp-template.json`.
-
-### Recommended MCP Servers
-
-| Server | What it does | How to enable |
-|--------|-------------|---------------|
-| **context7** | Search docs for 30+ libraries | Set `enabled: true` in opencode.json |
-| **github** | PR creation, issue management | Set `enabled: true` + `GITHUB_TOKEN` env var |
-| **sequential-thinking** | Structured reasoning | Set `enabled: true` in opencode.json |
-| **sentry** | Error monitoring | Set `enabled: true` + OAuth |
-| **postgres** | Database schema inspection | Set `enabled: true` + `DATABASE_URL` env var |
-| **puppeteer** | Browser automation | Set `enabled: true` in opencode.json |
-
-### How to add a new MCP server:
-
-1. Copy the config from `.opencode/mcp-template.json`
-2. Paste it into `opencode.json` under `mcp`
-3. Set `enabled: true`
-4. If it needs auth, set the env var in `environment`
-
-When to use MCP servers: Enable them per-project based on what external services you need.
+**How to use:** Pass a TypeScript/JS string. Returns stdout.
 
 ---
 
 ## Quick Reference Card
 
 ```
-┌────────────────┬──────────────────────┬──────────────────────┬──────────────────────┐
-│   COMPONENT    │     HOW TO USE       │     WHEN TO USE      │  HOW TO MAINTAIN     │
-├────────────────┼──────────────────────┼──────────────────────┼──────────────────────┤
-│ THE BRAIN      │ Loads automatically  │ Every session        │ /init or edit files  │
-│ AGENTS.md      │                      │                      │                      │
-├────────────────┼──────────────────────┼──────────────────────┼──────────────────────┤
-│ PLANNER        │ /gsd-new-project     │ New features,        │ /gsd-update          │
-│ GSD            │ then phase cycle     │ complex tasks        │                      │
-├────────────────┼──────────────────────┼──────────────────────┼──────────────────────┤
-│ DISCIPLINE     │ skill({name:         │ Multi-step tasks,    │ No maintenance       │
-│ Planning-with  │ "planning-with-      │ research sessions    │ (loaded on-demand)   │
-│ -Files         │ files"})             │                      │                      │
-├────────────────┼──────────────────────┼──────────────────────┼──────────────────────┤
-│ KNOWLEDGE      │ @ingest-agent        │ After any work       │ @lint-agent          │
-│ wiki/          │ Ask questions        │ session              │ weekly               │
-├────────────────┼──────────────────────┼──────────────────────┼──────────────────────┤
-│ CODE MAPPER    │ /graphify .          │ Project start,       │ Re-run --update      │
-│ Graphify       │                      │ after refactors      │                      │
-├────────────────┼──────────────────────┼──────────────────────┼──────────────────────┤
-│ DESIGN         │ Reference in prompts │ When building UI     │ Edit DESIGN.md       │
-│ DESIGN.md      │                      │                      │                      │
-├────────────────┼──────────────────────┼──────────────────────┼──────────────────────┤
-│ REVIEWER       │ @reviewer            │ Before commits       │ Edit agent .md file  │
-│ DEBUGGER       │ @debugger            │ When debugging       │                      │
-│ SEC-AUDITOR    │ @sec-auditor         │ Before release       │                      │
-├────────────────┼──────────────────────┼──────────────────────┼──────────────────────┤
-│ MEMORY         │ Auto-reads on start  │ Every session        │ Write on session end │
-│ STATE.md/log   │                      │                      │                      │
-├────────────────┼──────────────────────┼──────────────────────┼──────────────────────┤
-│ RESEARCHER     │ @researcher          │ Before decisions     │ Edit agent .md file  │
-│                │ <question>           │                      │                      │
-├────────────────┼──────────────────────┼──────────────────────┼──────────────────────┤
-│ MCP SERVERS    │ Enable in            │ When you need        │ Update env vars      │
-│                │ opencode.json        │ external services    │ when tokens expire   │
-└────────────────┴──────────────────────┴──────────────────────┴──────────────────────┘
+┌──────────────────┬──────────────────────┬──────────────────────┐
+│   COMPONENT      │    HOW TO USE        │     WHEN TO USE      │
+├──────────────────┼──────────────────────┼──────────────────────┤
+│ CORTEX-PLANNER   │ Switch to Tab        │ Planning, spec,      │
+│                  │                      │ research, memory     │
+├──────────────────┼──────────────────────┼──────────────────────┤
+│ CORTEX-DEVELOPER │ Switch to Tab        │ Building, testing,   │
+│                  │                      │ implementing specs   │
+├──────────────────┼──────────────────────┼──────────────────────┤
+│ SPEC-KIT         │ /speckit.*           │ Every feature task   │
+│ Frontal Lobe     │                      │                      │
+├──────────────────┼──────────────────────┼──────────────────────┤
+│ GRAPHFY          │ query_graph before   │ Before editing,      │
+│ Parietal Lobe    │ every edit           │ after refactors      │
+├──────────────────┼──────────────────────┼──────────────────────┤
+│ ENGRAM           │ mem_save / search    │ Every session        │
+│ Hippocampus      │ mem_session_start    │ start/end + on       │
+│                  │ mem_session_end      │ discovery           │
+├──────────────────┼──────────────────────┼──────────────────────┤
+│ WIKI (archive)   │ Read .md files       │ Reference, reading   │
+│ Occipital Lobe   │                      │ (not for writing)    │
+├──────────────────┼──────────────────────┼──────────────────────┤
+│ 5-STEP GATE      │ Automatic in         │ Every task           │
+│                  │ Developer prompt      │                      │
+├──────────────────┼──────────────────────┼──────────────────────┤
+│ GIT HOOK         │ Automatic on commit  │ Every commit         │
+│ pre-commit       │                      │                      │
+├──────────────────┼──────────────────────┼──────────────────────┤
+│ CODE-SANDBOX     │ execute_script       │ Multi-step logic     │
+│                  │ tool                 │ prototyping          │
+└──────────────────┴──────────────────────┴──────────────────────┘
 ```
+
+---
+
+## How to Maintain
+
+| Component | Maintenance |
+|-----------|-------------|
+| Engram | Data is persistent. Run `engram export` for backups. |
+| Graphify | Re-run after major refactors: `/graphify . --update` |
+| Spec-Kit | Templates are in `.specify/`. Update as project evolves. |
+| Wiki | Auto-generated. Only maintain export script. |
+| Git hooks | `.git/hooks/pre-commit` — edit threshold as needed. |

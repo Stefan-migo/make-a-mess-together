@@ -14,9 +14,15 @@ wiki/graph/cache/
 # OpenCode
 .opencode/tools/node_modules/
 
+# Engram local database
+.engram/
+
 # Obsidian workspace
 .obsidian/workspace.json
 .obsidian/workspace
+
+# Spec-Kit integration manifests (generated, per-machine)
+.specify/integrations/
 
 # OS
 __pycache__/

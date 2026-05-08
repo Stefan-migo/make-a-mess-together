@@ -1,202 +1,118 @@
-# Cortex — Multi-Agent Development System
+# Cortex 2.5 — Tool-Driven Executive Reasoning
 
-## System Overview
+## Brain Lobe Architecture
 
-This is a **generic multi-agent coding framework** that covers the full development lifecycle:
-
-| Capability | How it works | Components |
-|------------|-------------|------------|
-| **Long-term memory** | Persistent markdown wiki + append-only log + session summaries | `wiki/`, `@ingest-agent`, `@lint-agent`, session-memory skill |
-| **Information query** | Catalog-driven search, graph navigation, cross-referenced knowledge | `wiki/index.md`, wiki-search tool, `@researcher`, wiki-query skill |
-| **Task planning** | Spec-driven phase lifecycle with atomic execution | GSD (65 commands), `planning` skill, `.planning/` artifacts |
-| **Context discipline** | File-based working memory, error logging, plan re-reading | `planning-with-files` skill, 3-file pattern, hook guards |
-| **Code understanding** | Knowledge graph from AST + semantic extraction | Graphify (`/graphify .`), `wiki/graph/` |
-| **Auto-maintenance** | Self-linting, contradiction detection, proactive suggestions | `AGENTS.md` self-maint rules, `@lint-agent`, schema/ policies |
-| **Code quality** | Review, debug, security audit agents | `@reviewer`, `@debugger`, `@sec-auditor` |
-| **Design system** | Token-based UI generation, brand consistency | `DESIGN.md`, design-system skill |
-| **Cross-session** | STATE.md + log.md restore context after /clear | session-memory skill, session-recover tool |
-| **Obsidian integration** | Visual graph view, [[wikilinks]], Dataview dashboards | `.obsidian/` config, wiki schema |
-
-This is a **template**, not a fixed project. You clone it to start any new project, then specialize it.
-
-## Project Architecture
-This project uses a three-layer knowledge architecture:
-- `raw/` — Immutable source documents. The LLM reads from here but never modifies.
-- `wiki/` — A maintained markdown wiki. The LLM owns this layer: creates, updates, cross-references.
-- `schema/` — Configuration files that define wiki structure, agent behavior, and editorial policies.
-
-## Directory Structure
 ```
-root/
-├── AGENTS.md                       # This file — rules loaded every session
-├── SYSTEM-MAP.md                   # Visual reference of all tools and when to use them
-├── USER-GUIDE.md                   # Complete usage guide
-├── DESIGN.md                       # Design system specification
-├── opencode.json                   # OpenCode agent/permission/MCP config
-├── .opencode/
-│   ├── agents/                     # 8 core + 33 GSD + project-specific subagents
-│   ├── command/                    # 65 GSD commands (/gsd-*) + /new-project
-│   ├── skills/                     # 8 SKILL.md workflow guides
-│   ├── tools/                      # 3 custom TypeScript tools
-│   ├── plugins/                    # Graphify hook plugin
-│   ├── templates/
-│   │   └── agents/                 # Role templates for bootstrap (backend, frontend, etc.)
-│   └── mcp-template.json           # Recommended MCP server configs
-├── scripts/                        # CLI setup & utility scripts
-├── .planning/                      # Planning artifacts (shared with GSD)
-│   ├── PROJECT.md                  # Project vision & goals
-│   ├── ROADMAP.md                  # Phase roadmap with status
-│   ├── STATE.md                    # Current position, decisions, blockers
-│   ├── ARCHIVE.md                  # Completed milestones
-│   ├── templates/                  # Plan & research templates
-│   └── sessions/                   # Per-session plan files
-├── wiki/                           # Knowledge base (the "compounding artifact")
-│   ├── index.md                    # Content-oriented catalog of all pages
-│   ├── log.md                      # Append-only chronological record
-│   ├── concepts/                   # Technology & domain concept pages
-│   ├── entities/                   # Code entities (classes, functions, modules)
-│   ├── sources/                    # Source document summaries
-│   ├── sessions/                   # Session summaries & knowledge capture
-│   ├── decisions/                  # Architecture Decision Records (ADRs)
-│   ├── dashboards/                 # Automated dashboards
-│   └── graph/                      # Knowledge graph outputs
-├── raw/                            # Immutable source materials
-│   └── assets/                     # Local images/media
-├── schema/
-│   ├── wiki-schema.md              # Wiki structure conventions
-│   ├── agent-behavior.md           # Cross-agent coordination
-│   └── editor-policy.md            # Source quality thresholds
-└── .obsidian/                      # Obsidian vault config
+Frontal Lobe (Planning)     → Spec-Kit (.specify/) — /speckit.{constitution,specify,plan,tasks,implement}
+Parietal Lobe (Spatial)     → Graphify — codebase graph before editing
+Hippocampus (Memory)        → Engram — persistent SQLite memory via MCP
+Occipital Lobe (Archive)    → wiki/ — Obsidian-readable snapshot exported from Engram
 ```
 
-## Self-Maintenance: How This System Manages Itself
+## Two Identities
 
-This system is self-aware. You have access to specific tools and should use them proactively.
+| Agent | Role | Permissions |
+|-------|------|-------------|
+| `@Cortex-Planner` | Human interaction, spec drafting, research, knowledge management | Read-only + webfetch + task |
+| `@Cortex-Developer` | Technical execution, code writing, testing, quality gates | Full (edit, bash, write, task) |
 
-### Toolkit Summary
+Switch with Tab: Planner (read-only) / Developer (full tools).
 
-| Tool | Type | How to invoke | Use for |
-|------|------|---------------|---------|
-| GSD planner | 65 commands | `/gsd-*` | Feature development, planning, execution |
-| Project bootstrap | Command + Skill | `/new-project` or `skill({name:"bootstrap"})` | Initialize template for a new project (asks questions, researches, proposes plan) |
-| Planning discipline | Skill + hooks | `skill({name:"planning-with-files"})` | Context discipline: re-read plan, save findings, log errors |
-| Knowledge base | wiki/ + agents | `@ingest-agent`, `@lint-agent`, `@researcher` | Ingesting, querying, maintaining wiki |
-| Code mapper | Slash command | `/graphify .` | Understanding codebase structure |
-| Design system | File + skill | `skill({name:"design-system"})` + DESIGN.md | UI generation |
-| Code quality | 3 agents | `@reviewer`, `@debugger`, `@sec-auditor` | Review, debug, security audit |
-| Memory | Files + skill | `skill({name:"session-memory"})` | Cross-session persistence |
-| Planning knowledge | Skill | `skill({name:"planning"})` | Structured planning guidance |
-| Wiki operations | 3 skills | `skill({name:"wiki-*"})` | Ingest, query, lint procedures |
+## Tool-Belt (MCP + CLI + Custom Tools)
 
-### Proactive Behavior Rules
+### Engram (Hippocampus — Memory)
+| Tool | Purpose |
+|------|---------|
+| `mem_save` | Save structured observation (decision, architecture, bugfix, pattern, discovery, learning) |
+| `mem_search` | FTS5 full-text search across all memory |
+| `mem_judge` | Resolve conflict candidates returned by mem_save |
+| `mem_session_start` | Register session start |
+| `mem_session_end` | Mark session complete |
+| `mem_session_summary` | Save comprehensive session summary |
+| `mem_context` | Recent context from previous sessions |
+| `mem_get_observation` | Full untruncated observation content |
+| `mem_stats` | Memory system statistics |
 
-**At session start, do this automatically:**
-1. Read `.planning/STATE.md` for current position
-2. Read `wiki/log.md` for recent activity (last 5 entries)
-3. Read `.planning/ROADMAP.md` for phase status
-4. Present a brief session-start summary: current phase, last activity, suggested next action
+### Graphify (Parietal Lobe — Code Understanding)
+| Tool | Purpose |
+|------|---------|
+| `query_graph` | Query knowledge graph for relevant nodes |
+| `god_nodes` | Find highest-degree concepts |
+| `python3 -m graphify.serve <graph>` | MCP server for graph queries |
+| `/graphify . --update` | Rebuild graph after code changes |
 
-**During the session, proactively:**
-- If the user mentions a new codebase → suggest running `/graphify .`
-- If the wiki has >10 pages and lint hasn't run recently → suggest `@lint-agent`
-- If the user describes a complex task → suggest `/gsd-new-project` or `/gsd-quick`
-- If the user mentions a bug → suggest `@debugger`
-- If building UI → read DESIGN.md and apply design-system skill
-- If user asks about decisions → check `wiki/decisions/` for ADRs
-- If the project just started (no project context in AGENTS.md) → suggest running the bootstrap skill
-- If the user says "start a new project" or "adapt this system" → load the bootstrap skill automatically
+### Spec-Kit (Frontal Lobe — Planning)
+| Command | Purpose |
+|---------|---------|
+| `/speckit.constitution` | Define project principles |
+| `/speckit.specify` | Write feature spec (WHAT to build) |
+| `/speckit.clarify` | Resolve ambiguities |
+| `/speckit.plan` | Write tech plan (HOW to build) |
+| `/speckit.tasks` | Break into executable tasks |
+| `/speckit.implement` | Execute all tasks |
+| `/speckit.analyze` | Cross-artifact consistency check |
+| `/speckit.checklist` | Quality validation checklist |
+| `/speckit.taskstoissues` | Convert tasks to GitHub issues |
 
-**At session end (before /clear or closing), do this:**
-1. Summarize what was accomplished
-2. Write session summary to `wiki/sessions/{date}-{slug}.md`
-3. Append to `wiki/log.md`
-4. Update `.planning/STATE.md` with latest position
+### Code-Sandbox (Execution)
+| Tool | Purpose |
+|------|---------|
+| `execute_script` | Run TypeScript/JavaScript in Node.js sandbox for multi-step logic |
 
-### Maintenance Schedule
+## Session Flow
 
-| Task | Frequency | How |
-|------|-----------|-----|
-| Wiki lint | Weekly | `@lint-agent Full lint` |
-| Graphify update | After major refactors | `/graphify . --update` |
-| GSD update | Monthly | `/gsd-update` |
-| Index cleanup | Monthly | Check wiki/index.md covers all existing pages |
-| AGENTS.md review | Per milestone | Run `/init` to refresh |
+### Start
+1. `@Cortex-Planner` runs `mem_session_start`
+2. `@Cortex-Planner` runs `mem_context` to restore recent activity
+3. Load relevant skill: `skill({name:"graphify"})` if code work needed
 
-## Workflow
+### Work
+1. Planner discusses with user, drafts spec via `/speckit.specify`
+2. Planner hands spec to Developer via `@Cortex-Developer`
+3. Developer runs graphify check before editing code
+4. Developer executes 5-Step Gate per task
 
-### 1. New Feature / Task
-Discuss → Plan → Execute → Verify → Ingest
+### 5-Step Execution Gate (MANDATORY)
+```
+Step 1: GRAPH CHECK — query_graph before editing
+Step 2: ATOMIC COMMIT — one concern per commit, ≤5 files
+Step 3: VERIFY — lint + typecheck + tests (block on failure)
+Step 4: SPEC CHECK — /speckit.analyze after completion
+Step 5: MEMORY — mem_save key learnings
+```
 
-### 2. Knowledge Management
-Ingest → Query → Lint (periodic loop)
+### End
+1. `@Cortex-Developer` saves observations via `mem_save`
+2. `@Cortex-Planner` runs `mem_session_summary`
+3. `@Cortex-Planner` runs `mem_session_end`
+4. Run `scripts/engram-export-wiki.sh` to sync to Obsidian vault
 
-### 3. Daily Session
-1. Read `.planning/STATE.md` and `wiki/log.md` to restore context
-2. Read `.planning/ROADMAP.md` for current phase
-3. Check `wiki/index.md` for relevant knowledge
-4. Work on current phase
-5. Update `.planning/STATE.md` and `wiki/log.md` before closing
+## Active MCP Servers
+| Server | Purpose | Status |
+|--------|---------|--------|
+| Engram | Persistent memory (19 tools) | Enabled |
+| Graphify | Codebase knowledge graph | Enabled |
 
-## Agent Invocation
-Use `@agent-name` to invoke subagents:
-- `@researcher` — Deep research on technical topics
-- `@architect` — System design and architecture decisions
-- `@reviewer` — Code review and quality assurance
-- `@implementer` — Focused implementation from structured plans
-- `@debugger` — Bug investigation and root cause analysis
-- `@sec-auditor` — Security vulnerability scanning
-- `@ingest-agent` — Wiki ingestion pipeline
-- `@lint-agent` — Wiki health checks
+Optional: sequential-thinking, context7, github — enable in `opencode.json` as needed.
 
-Switch primary agents with Tab key: Build (full tools) / Plan (read-only).
+## Skills
+| Skill | When to load |
+|-------|-------------|
+| `skill({name:"graphify"})` | Before any code editing |
+| `skill({name:"design-system"})` | When building UI |
 
-After project bootstrap via `/new-project`, custom primary agents are created:
-- `{ProjectName}Build` — Full development, project-aware, orchestrates the team
-- `{ProjectName}Plan` — Read-only analysis and planning, project-aware
-
-## Agent Team Structure
-When a project is bootstrapped, a team of specialized subagents is created:
-
-| Role | Agent | Responsibility |
-|------|-------|---------------|
-| Backend | `@{project}-backend` | API design, business logic, database access |
-| Frontend | `@{project}-frontend` | UI components, state management, responsive design |
-| Database | `@{project}-database` | Schema design, migrations, query optimization |
-| Security | `@{project}-security` | Vulnerability scanning, auth auditing, compliance |
-| DevOps | `@{project}-devops` | CI/CD, infrastructure, deployment, monitoring |
-| QA | `@{project}-qa` | Testing strategy, coverage, edge case detection |
-
-Agent templates are in `.opencode/templates/agents/`. They are filled with project context during bootstrap.
-
-## Skill Invocation
-Skills are loaded on-demand via the skill tool. Key skills:
-- `bootstrap` — Initialize template for a new project (ask questions, self-modify)
-- `planning` — GSD-style Discuss → Plan → Execute → Verify lifecycle
-- `wiki-ingest` — Guide for ingesting sources into the wiki
-- `wiki-query` — Query patterns for navigating the wiki
-- `wiki-lint` — Health checks and contradiction detection
-- `graphify` — Knowledge graph integration
-- `design-system` — UI/UX design intelligence
-- `session-memory` — Cross-session persistence and recovery
-
-## Wiki Management
-- The wiki is a persistent, compounding artifact. Always update it after significant work.
-- `wiki/index.md` is the content catalog — update it when pages are added or changed.
-- `wiki/log.md` is the chronological record — append to it after every session.
-- Use [[Obsidian wikilinks]] for cross-references between wiki pages.
-- Source claims in wiki pages must cite the original source in `raw/` or `wiki/sources/`.
-- Save useful answers back to the wiki so knowledge compounds instead of disappearing into chat history.
-- Run `wiki-lint` periodically to check for contradictions, orphans, and stale claims.
-
-## Planning Conventions
-- Use `.planning/` for all planning artifacts — never keep plans only in context.
-- Each phase: Discuss → Research → Plan → Execute → Verify.
-- Plans should be small enough to fit in a fresh context window.
-- Every task gets its own atomic commit.
-- Update `.planning/STATE.md` after every significant change.
+## Knowledge Capture Discipline
+Save to Engram immediately when you encounter:
+- **decision**: Architecture or design decisions with rationale
+- **bugfix**: Root cause and fix for bugs
+- **pattern**: Reusable patterns discovered
+- **architecture**: System architecture insights
+- **discovery**: Unexpected findings
+- **learning**: Lessons learned during development
 
 ## Coding Standards
-- Run lint/typecheck before considering work complete.
-- Follow the project's existing code conventions.
-- Atomic commits: one concern per commit, descriptive messages.
-- Write tests alongside implementation.
+- Run lint + typecheck before considering work complete
+- Follow existing project conventions
+- Atomic commits: one concern per commit, descriptive messages
+- Write tests alongside implementation
+- NEVER commit secrets or credentials

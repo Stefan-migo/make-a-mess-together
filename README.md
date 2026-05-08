@@ -1,53 +1,39 @@
 <div align="center">
-  <h1>Cortex</h1>
-  <p><strong>Multi-Agent Development System — Memory, Planning & Code Understanding for OpenCode</strong></p>
+  <h1>Cortex 2.5</h1>
+  <p><strong>Tool-Driven Executive Reasoning — Brain Lobe Architecture for OpenCode</strong></p>
   <p>
     <a href="https://opencode.ai"><img src="https://img.shields.io/badge/OpenCode-Ready-2563EB?style=flat-square" alt="OpenCode Ready"></a>
     <a href="https://github.com/Stefan-migo/Cortex/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
-    <a href="https://github.com/Stefan-migo/Cortex/graphs/contributors"><img src="https://img.shields.io/github/stars/Stefan-migo/Cortex?style=flat-square" alt="Stars"></a>
   </p>
   <p>
     <a href="#-what-is-cortex">What is Cortex</a> •
     <a href="#-quick-start">Quick Start</a> •
-    <a href="#-architecture">Architecture</a> •
-    <a href="#-capabilities">Capabilities</a> •
-    <a href="#%EF%B8%8F-bootstrap-for-new-projects">Bootstrap</a>
+    <a href="#-architecture">Architecture</a>
   </p>
 </div>
 
 ---
 
-Cortex is a **bootstrappable development environment** for AI coding agents. It turns [OpenCode](https://opencode.ai) into a self-aware system with persistent memory, structured planning, codebase understanding, and automated maintenance — all using plain markdown files and OpenCode-native extensibility.
+Cortex 2.5 is a **tool-driven executive reasoning system** for AI coding agents. It turns [OpenCode](https://opencode.ai) into a self-aware system with four brain lobes: **Frontal** (Spec-Kit planning), **Parietal** (Graphify code understanding), **Hippocampus** (Engram persistent memory), and **Occipital** (Obsidian wiki archive).
 
-Built on the [LLM Wiki pattern](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) by Andrej Karpathy and integrating [GSD](https://github.com/gsd-build/get-shit-done), [Graphify](https://github.com/safishamsi/graphify), and [Planning with Files](https://github.com/OthmanAdi/planning-with-files).
+Built on [github/spec-kit](https://github.com/github/spec-kit) (93k★), [Gentleman-Programming/engram](https://github.com/Gentleman-Programming/engram) (3.3k★), and [Graphify](https://github.com/safishamsi/graphify).
 
 ---
 
 ## Quick Start
 
 ```bash
-# Option A: Clone into a new subdirectory (clean, recommended)
-git clone https://github.com/Stefan-migo/Cortex.git my-project
-cd my-project
-
-# Option B: Clone directly into the current directory (if it's empty)
-# cd /path/to/empty-folder
-# git clone https://github.com/Stefan-migo/Cortex.git .
-
-# Then:
-rm -rf .git && git init           # Break from Cortex history — this is YOUR project now
-./scripts/install-deps.sh         # One-time per machine (Graphify, MCPs, tools)
-opencode                          # Launch the agent
-# Inside OpenCode, type:
-/new-project                      # Bootstrap: agent asks questions, researches, builds your team
+git clone https://github.com/Stefan-migo/Cortex.git
+cd Cortex
+./scripts/setup.sh                  # Install deps: Engram + Spec-Kit + Graphify
+opencode                            # Launch agent
+# Switch between @Cortex-Planner (Tab) and @Cortex-Developer (Tab)
 ```
 
 ### What's In the Repo vs What Needs Installing
 
-Most of Cortex is **already committed to the repo** and works immediately after clone:
-
-| Already in repo (works after clone) | Needs install on each machine |
-|------------------------------------|-------------------------------|
+| Already in repo | Needs install (per machine) |
+|-----------------|----------------------------|
 | GSD commands (66 files) | Graphify Python package (`pip install graphifyy`) |
 | GSD agents (33 files) | Graphify OpenCode hooks (`graphify install --platform opencode`) |
 | GSD runtime (245 files) | Planning with Files global install (handled by install-deps.sh) |
@@ -58,83 +44,47 @@ Most of Cortex is **already committed to the repo** and works immediately after 
 | DESIGN.md, SYSTEM-MAP.md, USER-GUIDE.md | |
 | Obsidian vault config | |
 
-**Run `./scripts/install-deps.sh` after clone** to set up everything that can't live in the repo.
-
 ### Prerequisites
 
 | Tool | Version | Required by |
 |------|---------|-------------|
-| [OpenCode](https://opencode.ai) | >= 1.0 | The agent runtime itself |
-| [Node.js](https://nodejs.org) | >= 18 | GSD commands runtime |
-| [Python](https://python.org) | >= 3.10 | Graphify (optional but recommended) |
+| [OpenCode](https://opencode.ai) | >= 2.0 | The agent runtime |
+| [Python](https://python.org) | >= 3.10 | Graphify, Spec-Kit |
+| [Node.js](https://nodejs.org) | >= 18 | Custom tools, execute_script |
 
 ---
 
-## Capabilities
-
-| Capability | How it works | Components |
-|------------|-------------|------------|
-| **Long-term memory** | Persistent markdown wiki + append-only log + session summaries | `wiki/`, `@ingest-agent`, `@lint-agent`, session-memory skill |
-| **Information query** | Catalog-driven search, graph navigation, cross-referenced knowledge | `wiki/index.md`, wiki-search tool, `@researcher`, wiki-query skill |
-| **Task planning** | Spec-driven phase lifecycle with atomic execution | GSD (65 commands), `planning` skill, `.planning/` artifacts |
-| **Context discipline** | File-based working memory, error logging, plan re-reading | planning-with-files skill, 3-file pattern, hook guards |
-| **Code understanding** | Knowledge graph from AST + semantic extraction | Graphify (`/graphify .`), `wiki/graph/` |
-| **Auto-maintenance** | Self-linting, contradiction detection, proactive suggestions | Self-maint rules in `AGENTS.md`, `@lint-agent`, `schema/` policies |
-| **Code quality** | Review, debug, security audit agents | `@reviewer`, `@debugger`, `@sec-auditor` |
-| **Design system** | Token-based UI generation, brand consistency | `DESIGN.md`, design-system skill |
-| **Cross-session** | Context recovery after `/clear` | session-memory skill, session-recover tool |
-| **Obsidian integration** | Visual graph view, [[wikilinks]], Dataview dashboards | `.obsidian/` config, wiki schema |
-
----
-
-## Architecture
+## Architecture (Brain Lobe Model)
 
 ```
-                        ┌──────────────────────┐
-                        │     AGENTS.md         │
-                        │   opencode.json       │
-                        │   schema/             │
-                        └──────┬───────────────┘
-                               │ loads every session
-          ┌────────────────────┼────────────────────┬──────────────────┐
-          │                    │                    │                  │
-   ┌──────▼──────┐    ┌───────▼───────┐    ┌───────▼───────┐  ┌──────▼───────┐
-   │   PLANNER   │    │  DISCIPLINE   │    │  KNOWLEDGE    │  │ CODE MAPPER │
-   │             │    │               │    │               │  │              │
-   │  GSD cmds   │    │Planning-Files │    │  wiki/        │  │  Graphify    │
-   │  .planning/ │    │ re-read plan  │    │  @ingest      │  │  /graphify   │
-   │             │    │ log errors    │    │  @lint        │  │              │
-   └─────────────┘    │ verify before │    └───────┬───────┘  └──────────────┘
-          │           │  stopping     │           │                    │
-          │           └───────────────┘           │                    │
-          │                    │             ┌─────▼──────┐           │
-          │                    │             │  MEMORY    │           │
-          │                    │             │            │           │
-          └────────────────────┼─────────────┤ STATE.md   ├───────────┘
-                               │             │ log.md     │
-                               │             │ sessions/  │
-                               │             └────────────┘
-                               │
-                         ┌─────▼──────┐
-                         │   DESIGN   │
-                         │ DESIGN.md  │
-                         └────────────┘
+                         ┌──────────────────────────┐
+                         │  FRONTAL LOBE (Planning)  │
+                         │     Spec-Kit /speckit.*   │
+                         │     .specify/ artifacts   │
+                         │     @Cortex-Planner       │
+                         └──────────┬───────────────┘
+                                    │ hands off spec
+          ┌─────────────────────────┼──────────────────────────┐
+          │                         │                          │
+   ┌──────▼──────────┐    ┌───────▼──────────┐    ┌─────────▼─────────┐
+   │  PARIETAL LOBE   │    │  HIPPOCAMPUS     │    │ OCCIPITAL LOBE    │
+   │  (Spatial)       │    │  (Memory)        │    │ (Archive)         │
+   │                   │    │                   │    │                   │
+   │  Graphify        │    │  Engram MCP      │    │  wiki/ (export)   │
+   │  query_graph     │    │  mem_save/search │    │  .md snapshots    │
+   │  god_nodes       │    │  mem_judge       │    │  from Engram      │
+   │  graph.json      │    │  session lifecycle│   │                   │
+   └──────────────────┘    └───────────────────┘    └──────────────────┘
+
+   @Cortex-Developer executes across all lobes via the mandatory 5-Step Gate
 ```
 
-### Three-Layer Knowledge Architecture
+### Two Identities
 
-```
-raw/              wiki/              schema/
-┌──────────┐    ┌──────────┐    ┌──────────┐
-│ Source   │ →  │Persistent│ ←  │ Agent    │
-│ Documents│    │ Knowledge│    │Instructions│
-│(immutable)│   │  Base    │    │(rules)    │
-└──────────┘    └──────────┘    └──────────┘
-```
-
-- **`raw/`** — Immutable source documents. The LLM reads from here but never modifies.
-- **`wiki/`** — The persistent, compounding knowledge base. The LLM writes it; you read it.
-- **`schema/`** — Configuration that tells the LLM how the wiki is structured.
+| Agent | Role | Permissions |
+|-------|------|-------------|
+| `@Cortex-Planner` | Human interaction, spec drafting, research, memory | Read-only + webfetch + task |
+| `@Cortex-Developer` | Technical execution, coding, testing, quality | Full (edit, bash, write, task) |
 
 ---
 
@@ -173,74 +123,32 @@ Token-based UI generation. Defines colors, typography, spacing, and component st
 | `@gsd-*` (33) | Specialized agents used by GSD commands |
 
 ### 8. Custom Tools — TypeScript
-| Tool | Purpose |
-|------|---------|
-| `wiki-search` | Search wiki markdown with relevance ranking |
-| `wiki-link` | Analyze wikilink graph — orphans, broken links, stats |
-| `session-recover` | Restore context from STATE.md, log.md, and summaries |
-
-### 9. Memory — Cross-Session
-`.planning/STATE.md` + `wiki/log.md` + `wiki/sessions/` persist state across `/clear` and terminal restarts.
-
----
-
-## Bootstrap for New Projects
-
-Cortex is designed to be cloned and adapted. To start any new project:
-
-```bash
-git clone https://github.com/Stefan-migo/Cortex.git my-project
-cd my-project && rm -rf .git && git init
-./scripts/install-deps.sh
-opencode
-```
-
-Then inside OpenCode, run:
-```
-/new-project
-```
-
-The agent runs a 5-phase bootstrap:
-
-1. **Discover** — Asks one question at a time: name, description, tech stack, domain, references, goals, scope
-2. **Research** — Spawns `@researcher` to investigate best practices, industry patterns, competitor landscape, and analyzes any reference URLs you provided
-3. **Synthesize** — Combines your answers + research into a structured proposal with stack recommendations, architecture, risks, and phase plan
-4. **Generate** — After you approve, creates PROJECT.md, ROADMAP.md, STATE.md, updates AGENTS.md and DESIGN.md
-5. **Launch** — Shows next steps: `/gsd-discuss-phase 1` to start building
-
----
-
 ## Daily Workflow
 
 ### Starting a Session
-The agent automatically reads `.planning/STATE.md` and `wiki/log.md` at session start to restore context.
+1. `@Cortex-Planner` runs `mem_session_start` and `mem_context` to restore recent activity
+2. Planner discusses current goal with you
 
-### Building a Feature
+### Building a Feature (Spec-Driven)
 ```
-1. /gsd-discuss-phase 1     → Capture your preferences
-2. /gsd-plan-phase 1        → Create task plans
-3. /gsd-execute-phase 1     → Build with atomic commits
-4. /gsd-verify-work 1       → Confirm it works
-5. @ingest-agent             → Save knowledge to wiki
-```
-
-### Quick Tasks
-```
-Add dark mode toggle to settings    → Agent handles it ad-hoc
-```
-
-### Debugging
-```
-@debugger The login fails when email is unverified
-```
-
-### Wiki Maintenance
-```
-@lint-agent Run a full wiki lint
+1. /speckit.specify       → Planner writes feature spec (WHAT)
+2. /speckit.clarify        → Resolve ambiguities (optional but recommended)
+3. /speckit.plan           → Planner creates tech plan (HOW)
+4. /speckit.tasks          → Break into executable tasks
+   → Hand spec to @Cortex-Developer
+5. Developer runs 5-Step Gate per task:
+   - GRAPH CHECK → query_graph before editing
+   - ATOMIC COMMIT → one concern per commit
+   - VERIFY → lint + typecheck + tests
+   - SPEC CHECK → /speckit.analyze
+   - MEMORY → mem_save learnings
+6. /speckit.checklist      → Developer validates quality
 ```
 
 ### Session End
-The agent writes a summary to `wiki/sessions/`, appends to `wiki/log.md`, and updates `.planning/STATE.md`.
+1. `@Cortex-Developer` calls `mem_save` for all discoveries
+2. `@Cortex-Planner` calls `mem_session_summary` + `mem_session_end`
+3. Run `scripts/engram-export-wiki.sh` to sync to Obsidian vault
 
 ---
 
@@ -249,93 +157,45 @@ The agent writes a summary to `wiki/sessions/`, appends to `wiki/log.md`, and up
 ```
 root/
 ├── AGENTS.md                       # Rules loaded every session
-├── SYSTEM-MAP.md                   # Visual tool reference
-├── USER-GUIDE.md                   # Complete usage guide
+├── SYSTEM-MAP.md                   # Component reference guide
+├── USER-GUIDE.md                   # Usage guide
 ├── DESIGN.md                       # Design system specification
-├── opencode.json                   # OpenCode agent/permission/MCP config
+├── opencode.json                   # Agent/permission/MCP config
 ├── .opencode/
-│   ├── agents/                     # 8 core + 33 GSD subagent definitions
-│   ├── command/                    # 65 GSD commands (/gsd-*)
-│   ├── skills/                     # 8 SKILL.md workflow guides
-│   ├── tools/                      # 3 custom TypeScript tools
-│   └── plugins/                    # Graphify hook plugin
-├── scripts/                        # CLI setup & utility scripts
-│   ├── install-deps.sh             # One-time per machine: Graphify, Planning w/ Files, tools
-│   └── setup.sh                    # Project boilerplate (optional)
-├── .planning/                      # Planning artifacts (shared with GSD)
-│   ├── PROJECT.md                  # Project vision & goals
-│   ├── ROADMAP.md                  # Phase roadmap with status
-│   ├── STATE.md                    # Current position, decisions, blockers
-│   ├── ARCHIVE.md                  # Completed milestones
-│   ├── templates/                  # Plan & research templates
-│   └── sessions/                   # Per-session plan files
-├── wiki/                           # Knowledge base
-│   ├── index.md                    # Content-oriented catalog
-│   ├── log.md                      # Append-only chronological record
-│   ├── concepts/                   # Technology & domain concept pages
-│   ├── entities/                   # Code entities (classes, functions, modules)
-│   ├── sources/                    # Source document summaries
-│   ├── sessions/                   # Session summaries & knowledge capture
-│   ├── decisions/                  # Architecture Decision Records
-│   ├── dashboards/                 # Automated dashboards
-│   └── graph/                      # Knowledge graph outputs
+│   ├── agents/                     # 2 agents: cortex-planner, cortex-developer
+│   ├── skills/                     # 3 skills: graphify, design-system, bootstrap
+│   └── tools/                      # 3 custom tools (wiki-search, wiki-link, execute_script)
+├── .specify/                       # Spec-Kit structured planning
+│   ├── memory/constitution.md      # Project principles
+│   ├── templates/                  # Spec/plan/task templates
+│   └── workflows/                  # Automation workflows
+├── .git/hooks/pre-commit           # Atomicity gate (≤5 files per commit)
+├── scripts/
+│   ├── engram-export-wiki.sh       # Session-end Obsidian export
+│   ├── migrate-wiki-to-engram.sh   # One-time log → Engram seed
+│   └── setup.sh                    # Project initialization
+├── wiki/                           # Engram snapshot (Obsidian-readable)
+│   ├── index.md                    # Content catalog
+│   ├── log.md                      # Export log (archived; memory in Engram)
+│   ├── engram/                     # Auto-exported observations
+│   ├── graph/                      # Graphify outputs
+│   ├── concepts/                   # Technology concept pages
+│   └── ... (other static content)
 ├── raw/                            # Immutable source materials
-├── schema/
-│   ├── wiki-schema.md              # Wiki structure conventions
-│   ├── agent-behavior.md           # Cross-agent coordination
-│   └── editor-policy.md            # Source quality thresholds
+├── schema/                         # Editorial policies (wiki-schema, editor-policy)
 └── .obsidian/                      # Obsidian vault config
 ```
 
 ---
 
-## Self-Maintenance
-
-The system knows about itself and proactively manages its own health:
-
-| Event | Agent behavior |
-|-------|---------------|
-| Session start | Reads STATE.md + log.md, presents current phase |
-| New codebase | Suggests `/graphify .` |
-| Wiki growth | Suggests `@lint-agent` for health checks |
-| Complex task | Suggests `/gsd-new-project` |
-| Bug report | Suggests `@debugger` |
-| UI request | Reads DESIGN.md autonomously |
-| Session end | Writes summary, updates STATE.md, appends log.md |
-
-### Maintenance Schedule
-| Task | Frequency | How |
-|------|-----------|-----|
-| Wiki lint | Weekly | `@lint-agent Full lint` |
-| Graphify update | After major refactors | `/graphify . --update` |
-| GSD update | Monthly | `/gsd-update` |
-| AGENTS.md review | Per milestone | `/init` |
-
----
-
 ## Built On
 
-| Project | Role | Stars |
-|---------|------|-------|
-| [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) | Core architecture (three-layer pattern) | — |
-| [GSD](https://github.com/gsd-build/get-shit-done) | Planning & execution engine | 59k+ |
-| [Graphify](https://github.com/safishamsi/graphify) | Knowledge graph extraction | 39k+ |
-| [Planning with Files](https://github.com/OthmanAdi/planning-with-files) | Context discipline & session hooks | 20k+ |
-| [UI UX Pro Max](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) | Design system generation patterns | 73k+ |
-| [Awesome DESIGN.md](https://github.com/VoltAgent/awesome-design-md) | Design system file format | 69k+ |
-| [OpenCode](https://opencode.ai) | AI coding agent runtime | — |
-
----
-
-## Contributing
-
-Contributions are welcome. The most impactful contributions are:
-
-- **Worked examples**: Clone Cortex, build a real project, share what you learned
-- **New skills**: Add SKILL.md files for new workflows
-- **Agent improvements**: Better agent prompts for existing subagents
-- **Wiki schema**: Improvements to the knowledge base structure
-- **Bug fixes**: Issues with hooks, permissions, or cross-platform compatibility
+| Project | Role |
+|---------|------|
+| [github/spec-kit](https://github.com/github/spec-kit) | Spec-Driven Development (93k★) |
+| [Gentleman-Programming/engram](https://github.com/Gentleman-Programming/engram) | Persistent memory, 19 MCP tools (3.3k★) |
+| [Graphify](https://github.com/safishamsi/graphify) | Knowledge graph extraction |
+| [OpenCode](https://opencode.ai) | AI coding agent runtime |
 
 ---
 
@@ -346,10 +206,9 @@ MIT License — feel free to use, modify, and distribute.
 ---
 
 <div align="center">
-  <p>Built with OpenCode, powered by markdown.</p>
+  <p>Built with OpenCode. Brain lobes, not subagents.</p>
   <p>
     <a href="https://github.com/Stefan-migo/Cortex/issues">Report Issue</a> •
-    <a href="https://opencode.ai">OpenCode</a> •
-    <a href="https://github.com/Stefan-migo/Cortex/discussions">Discussions</a>
+    <a href="https://opencode.ai">OpenCode</a>
   </p>
 </div>

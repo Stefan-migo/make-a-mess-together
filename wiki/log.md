@@ -1,9 +1,10 @@
 # Wiki Log
 
-Chronological record of all wiki activity. Append-only.
+> **ARCHIVED**: Memory now lives in Engram (`.engram/engram.db`).
+> This file is maintained by `scripts/engram-export-wiki.sh` at session end.
+> Do NOT write entries directly — `mem_save` to Engram instead, then export.
 
-Entries are prefixed with date for grep-parseability:
-`grep "^## \[" wiki/log.md | tail -5`
+Entries are prefixed with date for grep-parseability.
 
 ---
 
@@ -34,3 +35,9 @@ Created scripts/install-deps.sh — one-command setup for Graphify, Planning wit
 
 ## [2026-05-01] feature | Professional Agent Team + Smart Bootstrap
 Complete bootstrap rewrite: 5-phase intelligent system with pre-flight check, deep research, and agent team architecture. Created 6 role-based agent templates (backend, frontend, database, security, devops, qa). Bootstrap now creates custom primary agents ({ProjectName}Build, {ProjectName}Plan) and specialized subagent teams. Suggests MCP servers, skills, and tools based on project stack and domain.
+
+## [2026-05-08] export | Engram snapshot exported to wiki/engram/
+Session memory synced to Obsidian-readable markdown.
+
+## [2026-05-08] export | Engram snapshot exported to wiki/engram/
+Session memory synced at 2026-05-08 01:38:11

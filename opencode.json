@@ -2,18 +2,30 @@
   "$schema": "https://opencode.ai/config.json",
   "instructions": [
     "AGENTS.md",
-    "DESIGN.md",
-    "schema/wiki-schema.md",
-    "schema/agent-behavior.md",
-    "schema/editor-policy.md",
-    ".planning/STATE.md",
-    ".planning/ROADMAP.md"
+    "DESIGN.md"
   ],
   "agent": {
-    "build": {
+    "cortex-planner": {
       "mode": "primary",
       "model": "anthropic/claude-sonnet-4-20250514",
       "temperature": 0.3,
+      "permission": {
+        "edit": "deny",
+        "bash": {
+          "*": "deny"
+        },
+        "read": "allow",
+        "glob": "allow",
+        "grep": "allow",
+        "webfetch": "allow",
+        "skill": "allow",
+        "task": { "*": "allow" }
+      }
+    },
+    "cortex-developer": {
+      "mode": "primary",
+      "model": "anthropic/claude-sonnet-4-20250514",
+      "temperature": 0.2,
       "permission": {
         "edit": "allow",
         "bash": "allow",
@@ -24,157 +36,32 @@
         "skill": "allow",
         "task": { "*": "allow" }
       }
-    },
-    "plan": {
-      "mode": "primary",
-      "model": "anthropic/claude-haiku-4-20250514",
-      "temperature": 0.1,
-      "permission": {
-        "edit": "deny",
-        "bash": {
-          "*": "ask",
-          "git status": "allow",
-          "git diff": "allow",
-          "git log*": "allow",
-          "ls *": "allow",
-          "cat *": "allow"
-        },
-        "read": "allow",
-        "glob": "allow",
-        "grep": "allow",
-        "webfetch": "allow",
-        "skill": "allow",
-        "task": { "*": "allow" }
-      }
-    },
-    "researcher": {
-      "description": "Deep research on technical topics. Uses web search, reads docs, analyzes approaches. Cannot modify files.",
-      "mode": "subagent",
-      "temperature": 0.2,
-      "permission": {
-        "edit": "deny",
-        "bash": "deny",
-        "read": "allow",
-        "glob": "allow",
-        "grep": "allow",
-        "webfetch": "allow",
-        "websearch": "allow"
-      }
-    },
-    "architect": {
-      "description": "System design and architecture analysis. Evaluates trade-offs, produces ADRs and design documents.",
-      "mode": "subagent",
-      "temperature": 0.2,
-      "permission": {
-        "edit": "deny",
-        "bash": "deny",
-        "read": "allow",
-        "glob": "allow",
-        "grep": "allow",
-        "webfetch": "allow"
-      }
-    },
-    "reviewer": {
-      "description": "Code review and quality assurance. Checks for bugs, security issues, performance problems, and style violations.",
-      "mode": "subagent",
-      "temperature": 0.1,
-      "permission": {
-        "edit": "deny",
-        "bash": {
-          "*": "ask",
-          "git diff*": "allow",
-          "git log*": "allow",
-          "git status": "allow"
-        },
-        "read": "allow",
-        "glob": "allow",
-        "grep": "allow"
-      }
-    },
-    "implementer": {
-      "description": "Focused implementation from structured plans. Executes task plans with fresh context, creates atomic commits.",
-      "mode": "subagent",
-      "temperature": 0.3,
-      "permission": {
-        "edit": "allow",
-        "bash": "allow",
-        "read": "allow",
-        "glob": "allow",
-        "grep": "allow",
-        "todowrite": "allow"
-      }
-    },
-    "debugger": {
-      "description": "Bug investigation and root cause analysis. Runs tests, inspects logs, traces execution paths.",
-      "mode": "subagent",
-      "temperature": 0.2,
-      "permission": {
-        "edit": "allow",
-        "bash": "allow",
-        "read": "allow",
-        "glob": "allow",
-        "grep": "allow"
-      }
-    },
-    "sec-auditor": {
-      "description": "Security auditing. Identifies vulnerabilities, injection risks, auth flaws, and dependency issues.",
-      "mode": "subagent",
-      "temperature": 0.1,
-      "permission": {
-        "edit": "deny",
-        "bash": {
-          "*": "ask",
-          "npm audit": "allow",
-          "pip audit": "allow",
-          "cargo audit": "allow"
-        },
-        "read": "allow",
-        "glob": "allow",
-        "grep": "allow"
-      }
-    },
-    "ingest-agent": {
-      "description": "Wiki ingestion pipeline. Reads source documents, extracts key info, writes wiki pages, updates cross-references and index.",
-      "mode": "subagent",
-      "temperature": 0.2,
-      "permission": {
-        "edit": "allow",
-        "bash": "deny",
-        "read": "allow",
-        "glob": "allow",
-        "grep": "allow"
-      }
-    },
-    "lint-agent": {
-      "description": "Wiki health checks. Finds contradictions, orphan pages, missing cross-refs, stale claims, and suggests improvements.",
-      "mode": "subagent",
-      "temperature": 0.1,
-      "permission": {
-        "edit": "deny",
-        "bash": "deny",
-        "read": "allow",
-        "glob": "allow",
-        "grep": "allow"
-      }
     }
   },
   "mcp": {
+    "engram": {
+      "type": "local",
+      "command": ["engram", "mcp"],
+      "enabled": true,
+      "_note": "Persistent Hippocampus memory. 19 tools: mem_save, mem_search, mem_judge, session lifecycle, FTS5 search."
+    },
     "graphify": {
       "type": "local",
       "command": ["python3", "-m", "graphify.serve", "wiki/graph/graph.json"],
-      "enabled": true
-    },
-    "context7": {
-      "type": "remote",
-      "url": "https://mcp.context7.com/mcp",
-      "enabled": false,
-      "_note": "Free docs search. Enable to let agents search official docs for any library."
+      "enabled": true,
+      "_note": "Parietal lobe: codebase knowledge graph for structural understanding before editing."
     },
     "sequential-thinking": {
       "type": "local",
       "command": ["npx", "-y", "@modelcontextprotocol/server-sequential-thinking"],
       "enabled": false,
-      "_note": "Structured reasoning for complex problems. Enable for better architecture and debugging."
+      "_note": "Structured reasoning for complex architecture and debugging decisions."
+    },
+    "context7": {
+      "type": "remote",
+      "url": "https://mcp.context7.com/mcp",
+      "enabled": false,
+      "_note": "Documentation search for 30+ libraries (React, Next.js, Tailwind, etc.)."
     },
     "github": {
       "type": "local",
@@ -183,13 +70,7 @@
       "environment": {
         "GITHUB_PERSONAL_ACCESS_TOKEN": "{env:GITHUB_TOKEN}"
       },
-      "_note": "GitHub PR and issue management. Set GITHUB_TOKEN env var first."
-    },
-    "memory": {
-      "type": "local",
-      "command": ["npx", "-y", "@modelcontextprotocol/server-memory"],
-      "enabled": false,
-      "_note": "Official MCP memory server. Uses knowledge graph for persistent memory. Redundant with wiki/ but useful as backup."
+      "_note": "GitHub PR, issue, and code management. Set GITHUB_TOKEN env var."
     }
   },
   "permission": {
