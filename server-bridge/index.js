@@ -145,9 +145,16 @@ const MIME_TYPES = {
   '.svg': 'image/svg+xml'
 };
 
-const httpServer = http.createServer((req, res) => {
-  const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
-  const pathname = parsedUrl.pathname;
+function handleRequest(req, res) {
+  // Bug #3: Wrap URL parsing in try-catch to prevent crash on malformed headers
+  let pathname;
+  try {
+    pathname = new URL(req.url, `http://${req.headers.host}`).pathname;
+  } catch (e) {
+    res.writeHead(400, { 'Content-Type': 'text/plain' });
+    res.end('Bad Request');
+    return;
+  }
 
   // Health check endpoint
   if (pathname === '/health') {
@@ -163,8 +170,12 @@ const httpServer = http.createServer((req, res) => {
 
   // Serve static files
   let filePath;
-  if (pathname.startsWith('/phone-client/')) {
-    filePath = path.join(__dirname, '..', 'phone-client', pathname.replace('/phone-client/', ''));
+  // Bug #2: Handle /phone-client without trailing slash
+  if (pathname === '/phone-client') {
+    filePath = path.join(__dirname, '..', 'phone-client', 'index.html');
+  } else if (pathname.startsWith('/phone-client/')) {
+    const relative = pathname.replace('/phone-client/', '');
+    filePath = path.join(__dirname, '..', 'phone-client', relative || 'index.html');
   } else {
     filePath = path.join(__dirname, 'public', pathname === '/' ? 'index.html' : pathname);
   }
@@ -174,16 +185,11 @@ const httpServer = http.createServer((req, res) => {
   fs.readFile(filePath, (err, content) => {
     if (err) {
       if (err.code === 'ENOENT') {
-        // Fallback to index.html for SPA-like routing
-        fs.readFile(path.join(__dirname, 'public', 'index.html'), (err2, content2) => {
-          if (err2) {
-            res.writeHead(500);
-            res.end('Internal Server Error');
-            return;
-          }
-          res.writeHead(200, { 'Content-Type': 'text/html' });
-          res.end(content2);
-        });
+        // Bug #1: Return proper 404 instead of silently serving dashboard
+        // Bug #4: Log routing failures for debugging
+        console.log('[http]', req.method, pathname, '→ 404 (not found:', filePath, ')');
+        res.writeHead(404, { 'Content-Type': 'text/html' });
+        res.end('<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Not Found</title><style>body{background:#0a0a0a;color:#e5e7eb;font-family:monospace;display:flex;justify-content:center;align-items:center;height:100vh;margin:0}div{text-align:center}h1{font-size:3rem;margin:0;color:#dc2626}p{color:#6b7280}</style></head><body><div><h1>404</h1><p>Not Found</p></div></body></html>');
       } else {
         res.writeHead(500);
         res.end('Internal Server Error');
@@ -193,7 +199,9 @@ const httpServer = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': contentType });
     res.end(content);
   });
-});
+}
+
+const httpServer = http.createServer(handleRequest);
 
 // ---------------------------------------------------------------------------
 // WebSocket Server
@@ -437,26 +445,30 @@ stateTimer.unref();
 // Start
 // ---------------------------------------------------------------------------
 
-httpServer.listen(PORT, () => {
-  const ip = getLanIp();
-  console.log();
-  console.log('╔══════════════════════════════════════════════════════╗');
-  console.log('║         phone-sensor-orchestra Bridge               ║');
-  console.log('╠══════════════════════════════════════════════════════╣');
-  console.log(`║  WebSocket : ${String(PORT).padEnd(42)}║`);
-  console.log(`║  LAN IP    : ${(ip + ':' + PORT).padEnd(42)}║`);
-  const dashboardUrl = `http://${ip}:${PORT}`;
-  console.log(`║  Dashboard : ${dashboardUrl.padEnd(42)}║`);
-  console.log('║                                                    ║');
-  console.log(`║  Max slots : ${String(30).padEnd(42)}║`);
-  console.log(`║  Heartbeat : ${String(HEARTBEAT_INTERVAL / 1000) + 's interval'.padEnd(35)}║`);
-  console.log(`║  Zombie    : ${String(ZOMBIE_TIMEOUT / 1000) + 's timeout'.padEnd(35)}║`);
-  console.log('╚══════════════════════════════════════════════════════╝');
-  console.log();
-  console.log(`Bridge at ws://${ip}:${PORT}`);
-  console.log(`Discovery page at http://${ip}:${PORT}`);
-  console.log();
-});
+if (require.main === module) {
+  httpServer.listen(PORT, () => {
+    const ip = getLanIp();
+    console.log();
+    console.log('╔══════════════════════════════════════════════════════╗');
+    console.log('║         phone-sensor-orchestra Bridge               ║');
+    console.log('╠══════════════════════════════════════════════════════╣');
+    console.log(`║  WebSocket : ${String(PORT).padEnd(42)}║`);
+    console.log(`║  LAN IP    : ${(ip + ':' + PORT).padEnd(42)}║`);
+    const dashboardUrl = `http://${ip}:${PORT}`;
+    console.log(`║  Dashboard : ${dashboardUrl.padEnd(42)}║`);
+    console.log('║                                                    ║');
+    console.log(`║  Max slots : ${String(30).padEnd(42)}║`);
+    console.log(`║  Heartbeat : ${String(HEARTBEAT_INTERVAL / 1000) + 's interval'.padEnd(35)}║`);
+    console.log(`║  Zombie    : ${String(ZOMBIE_TIMEOUT / 1000) + 's timeout'.padEnd(35)}║`);
+    console.log('╚══════════════════════════════════════════════════════╝');
+    console.log();
+    console.log(`Bridge at ws://${ip}:${PORT}`);
+    console.log(`Discovery page at http://${ip}:${PORT}`);
+    console.log();
+  });
+}
+
+module.exports = { handleRequest, httpServer };
 
 // ---------------------------------------------------------------------------
 // Graceful shutdown
