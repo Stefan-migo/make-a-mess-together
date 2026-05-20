@@ -421,10 +421,20 @@
   }
 
   function requiresSensorPermission() {
-    return (typeof DeviceOrientationEvent !== 'undefined' &&
-            typeof DeviceOrientationEvent.requestPermission === 'function') ||
-           (typeof DeviceMotionEvent !== 'undefined' &&
-            typeof DeviceMotionEvent.requestPermission === 'function');
+    // Check for iOS permission API (secure contexts)
+    if (typeof DeviceOrientationEvent !== 'undefined' &&
+        typeof DeviceOrientationEvent.requestPermission === 'function') {
+      return true;
+    }
+    if (typeof DeviceMotionEvent !== 'undefined' &&
+        typeof DeviceMotionEvent.requestPermission === 'function') {
+      return true;
+    }
+    // Fallback: detect iOS via user agent (works even over HTTP)
+    if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+      return true;
+    }
+    return false;
   }
 
   /**
@@ -473,37 +483,27 @@
   // =========================================================================
 
   /**
-   * Start the sensor data send loop using requestAnimationFrame.
-   * Throttled to ~30fps (every 33ms) to reduce message flood.
+   * Start the sensor data send loop using setInterval.
+   * setInterval continues to fire (though throttled) when the tab is
+   * backgrounded, unlike requestAnimationFrame which stops entirely on
+   * mobile. This prevents the bridge's zombie timeout from killing the
+   * connection.
    */
   function startSensorLoop() {
     if (state.animationId) return;
-
-    state.lastSent = 0;
     state.sentCount = 0;
-
-    function loop(timestamp) {
+    state.animationId = setInterval(() => {
       if (!state.connected || !state.ws || state.ws.readyState !== WebSocket.OPEN) {
+        clearInterval(state.animationId);
         state.animationId = null;
         return;
       }
-
-      // Throttle to 30fps
-      if (state.lastSent === 0 || (timestamp - state.lastSent) >= CONFIG.sendIntervalMs) {
-        sendSensorData();
-        state.lastSent = timestamp;
-        state.sentCount++;
-
-        // Update send rate display every 10 sends
-        if (state.sentCount % 10 === 0) {
-          updateSendRate();
-        }
+      sendSensorData();
+      state.sentCount++;
+      if (state.sentCount % 10 === 0) {
+        updateSendRate();
       }
-
-      state.animationId = requestAnimationFrame(loop);
-    }
-
-    state.animationId = requestAnimationFrame(loop);
+    }, CONFIG.sendIntervalMs);
   }
 
   /**
