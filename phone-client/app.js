@@ -41,6 +41,7 @@
     bridgeIp: '',
     lastSent: 0,
     sentCount: 0,
+    startTime: 0,
     reconnectAttempt: 0,
     reconnectTimer: null,
     sensorsAvailable: false,
@@ -315,6 +316,7 @@
   function handleAssignedMessage(msg) {
     state.slot = msg.slot;
     state.connected = true;
+    state.startTime = Date.now();
 
     // Update UI
     dom.slotNumber.textContent = msg.slot;
@@ -503,9 +505,13 @@
    * Update the send rate display in the footer.
    */
   function updateSendRate() {
-    if (dom.sendRate) {
-      dom.sendRate.textContent = Math.round(state.sentCount / ((Date.now() - state._startTime || 1) / 1000));
+    if (!dom.sendRate) return;
+    const elapsed = (Date.now() - state.startTime) / 1000;
+    if (elapsed < 1) {
+      dom.sendRate.textContent = Math.round(state.sentCount);
+      return;
     }
+    dom.sendRate.textContent = Math.round(state.sentCount / elapsed);
   }
 
   // =========================================================================
