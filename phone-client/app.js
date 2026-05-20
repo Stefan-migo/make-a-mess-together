@@ -20,8 +20,8 @@
   // Configuration
   // =========================================================================
   const CONFIG = {
-    wsPort: 8080,
-    sendIntervalMs: 33,           // ~30fps
+    wsPort: (typeof PHONE_CONFIG !== 'undefined' && PHONE_CONFIG.wsPort) || 8080,
+    sendIntervalMs: (typeof PHONE_CONFIG !== 'undefined' && PHONE_CONFIG.sendIntervalMs) || 33,           // ~30fps
     reconnectBaseMs: 1000,        // Base backoff delay
     reconnectMaxMs: 30000,        // Max backoff delay
     reconnectJitter: 0.3,         // Jitter factor
@@ -118,7 +118,13 @@
       return saved;
     }
 
-    // 3. Show config overlay for user input
+    // 3. Check PHONE_CONFIG (editable config.js file)
+    if (typeof PHONE_CONFIG !== 'undefined' && PHONE_CONFIG.bridgeIp && isValidIp(PHONE_CONFIG.bridgeIp)) {
+      localStorage.setItem('bridgeIp', PHONE_CONFIG.bridgeIp);
+      return PHONE_CONFIG.bridgeIp;
+    }
+
+    // 4. Show config overlay for user input
     return null;
   }
 
@@ -383,6 +389,7 @@
     } else {
       // Non-iOS or older iOS — no permission needed
       startSensors();
+      resolveIpAndConnect();
     }
   }
 
@@ -416,7 +423,9 @@
     }
 
     if (!state.sensorsAvailable && !state.orientationAvailable) {
-      updateConnectionUI('disconnected', 'No sensors available');
+      updateConnectionUI('disconnected', 'No sensors');
+      // Still try connecting — WebSocket works without sensors
+      resolveIpAndConnect();
     }
   }
 
