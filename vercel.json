@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/p5/(.*)", "destination": "/p5-sketch/$1" },
+    { "source": "/(.*)", "destination": "/phone-client/$1" }
+  ]
+}
