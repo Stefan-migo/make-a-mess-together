@@ -546,7 +546,7 @@ class VirtualPhone extends events.EventEmitter {
       this.ws.on('error', (err) => {
         this.state = 'error';
         this.emit('stateChange', this.slot, 'error');
-        this.emit('error', this.slot, err);
+        this.emit('phoneError', this.slot, err);
       });
     } catch (err) {
       this.state = 'error';
@@ -763,9 +763,16 @@ function main() {
       stats.trackMessage(slot, Math.random() * 5 + 0.5);
     });
 
+    phone.on('phoneError', (slot, err) => {
+      stats.trackConnection(slot, 'error');
+      if (config.verbose) {
+        console.error(`[Phone ${slot}] Error: ${err.message}`);
+      }
+    });
+
     phone.on('stateChange', (slot, state) => {
       if (config.verbose && state === 'error') {
-        console.error(`[Phone ${slot}] Error`);
+        console.error(`[Phone ${slot}] Error state`);
       }
     });
 
