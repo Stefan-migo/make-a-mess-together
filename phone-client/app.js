@@ -163,6 +163,15 @@
     startConnection(ip);
   }
 
+  function resolveIpAndConnect() {
+    const ip = getBridgeIp();
+    if (ip) {
+      startConnection(ip);
+    } else {
+      showConfigOverlay();
+    }
+  }
+
   // =========================================================================
   // WebSocket Connection
   // =========================================================================
@@ -348,6 +357,7 @@
         .then(function(permissionState) {
           if (permissionState === 'granted') {
             startSensors();
+            resolveIpAndConnect();
           } else {
             showPermissionError('Orientation permission denied');
           }
@@ -362,6 +372,7 @@
         .then(function(permissionState) {
           if (permissionState === 'granted') {
             startSensors();
+            resolveIpAndConnect();
           } else {
             showPermissionError('Motion permission denied');
           }
@@ -407,6 +418,13 @@
     if (!state.sensorsAvailable && !state.orientationAvailable) {
       updateConnectionUI('disconnected', 'No sensors available');
     }
+  }
+
+  function requiresSensorPermission() {
+    return (typeof DeviceOrientationEvent !== 'undefined' &&
+            typeof DeviceOrientationEvent.requestPermission === 'function') ||
+           (typeof DeviceMotionEvent !== 'undefined' &&
+            typeof DeviceMotionEvent.requestPermission === 'function');
   }
 
   /**
@@ -629,12 +647,15 @@
     // Start UI render loop
     startUILoop();
 
-    // Get bridge IP and start connection
-    const ip = getBridgeIp();
-    if (ip) {
-      startConnection(ip);
+    // Flow decision: iOS needs permission before anything else
+    if (requiresSensorPermission()) {
+      // iOS: Show permission overlay first, user must tap to enable sensors
+      dom.permissionOverlay.classList.remove('hidden');
+      // IP config will be resolved AFTER permission is granted (in startSensors callback)
     } else {
-      showConfigOverlay();
+      // Android/desktop: start sensors immediately, no permission needed
+      startSensors();
+      resolveIpAndConnect();
     }
   }
 
