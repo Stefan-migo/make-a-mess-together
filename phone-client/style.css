@@ -1,0 +1,441 @@
+/* ===========================================================================
+   phone-sensor-orchestra — Phone Client Styles
+   Design System: DESIGN.md
+   =========================================================================== */
+
+/* ---------------------------------------------------------------------------
+   Reset & Base
+   --------------------------------------------------------------------------- */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  /* Design System Tokens (DESIGN.md) */
+  --color-primary: #2563EB;
+  --color-primary-hover: #1D4ED8;
+  --color-success: #059669;
+  --color-warning: #D97706;
+  --color-error: #DC2626;
+  --color-surface: #0a0a0a;
+  --color-surface-secondary: #1a1a1a;
+  --color-border: #2a2a2a;
+  --color-text: #e0e0e0;
+  --color-text-secondary: #888;
+  --color-text-muted: #555;
+
+  /* Sensor-specific colors */
+  --color-accel: #2563EB;
+  --color-gyro: #059669;
+  --color-orient: #D97706;
+
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+
+  /* Typography */
+  --font-mono: 'Courier New', 'SF Mono', 'Consolas', monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+
+  /* Layout */
+  --bar-height: 8px;
+  --bar-radius: 4px;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.5;
+  padding: var(--space-lg);
+  min-height: 100vh;
+}
+
+/* ---------------------------------------------------------------------------
+   App Shell
+   --------------------------------------------------------------------------- */
+#app {
+  max-width: 480px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+/* ---------------------------------------------------------------------------
+   Header
+   --------------------------------------------------------------------------- */
+#header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+}
+
+#status-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+.dot.connected {
+  background: var(--color-success);
+  box-shadow: 0 0 8px var(--color-success);
+}
+
+.dot.disconnected {
+  background: var(--color-error);
+  box-shadow: 0 0 8px var(--color-error);
+}
+
+.dot.connecting {
+  background: var(--color-warning);
+  box-shadow: 0 0 8px var(--color-warning);
+}
+
+#connection-status {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+#slot-display {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+#slot-label {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+#slot-number {
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--color-primary);
+  min-width: 40px;
+  text-align: right;
+}
+
+/* ---------------------------------------------------------------------------
+   Overlay (Permission + Config)
+   --------------------------------------------------------------------------- */
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: var(--space-xl);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.overlay.hidden {
+  display: none;
+}
+
+.overlay-content {
+  text-align: center;
+  max-width: 360px;
+}
+
+.overlay-content h1 {
+  font-family: var(--font-sans);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: var(--space-md);
+}
+
+.overlay-content p {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-sm);
+  line-height: 1.6;
+}
+
+.overlay-content .note {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-xl);
+}
+
+/* ---------------------------------------------------------------------------
+   Buttons
+   --------------------------------------------------------------------------- */
+.btn-primary {
+  display: inline-block;
+  padding: 14px 32px;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--color-primary);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 150ms ease, transform 100ms ease;
+  min-width: 200px;
+}
+
+.btn-primary:hover {
+  background: var(--color-primary-hover);
+}
+
+.btn-primary:active {
+  transform: scale(0.98);
+}
+
+.btn-primary:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------------------
+   Input Group (IP Config)
+   --------------------------------------------------------------------------- */
+.input-group {
+  margin: var(--space-lg) 0;
+}
+
+#bridge-ip-input {
+  width: 100%;
+  padding: 14px 16px;
+  font-family: var(--font-mono);
+  font-size: 18px;
+  text-align: center;
+  color: var(--color-text);
+  background: var(--color-surface-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 150ms ease;
+}
+
+#bridge-ip-input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.3);
+}
+
+#bridge-ip-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.input-hint {
+  display: block;
+  margin-top: 6px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+#scan-hint {
+  margin-top: var(--space-lg);
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+/* ---------------------------------------------------------------------------
+   Sensor Readouts
+   --------------------------------------------------------------------------- */
+#sensor-readouts.hidden {
+  display: none;
+}
+
+.sensor-group {
+  background: var(--color-surface-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: var(--space-md) var(--space-lg);
+  margin-bottom: var(--space-md);
+}
+
+.sensor-title {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: var(--space-md);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.sensor-icon {
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+/* Individual Axis Row */
+.axis-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) 0;
+}
+
+.axis-row + .axis-row {
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.axis-label {
+  font-size: 13px;
+  font-weight: 600;
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+}
+
+/* Progress bars */
+.bar-container {
+  flex: 1;
+  height: var(--bar-height);
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: var(--bar-radius);
+  overflow: hidden;
+  min-width: 0;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: var(--bar-radius);
+  transition: width 0.05s linear;
+  background: var(--color-primary);
+  will-change: width;
+}
+
+/* Per-sensor bar colors */
+#accel-x .bar-fill,
+#accel-y .bar-fill,
+#accel-z .bar-fill {
+  background: var(--color-accel);
+}
+
+#gyro-a .bar-fill,
+#gyro-b .bar-fill,
+#gyro-g .bar-fill {
+  background: var(--color-gyro);
+}
+
+#orient-a .bar-fill,
+#orient-b .bar-fill,
+#orient-g .bar-fill {
+  background: var(--color-orient);
+}
+
+.axis-value {
+  font-size: 14px;
+  min-width: 56px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.axis-unit {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  min-width: 32px;
+}
+
+/* ---------------------------------------------------------------------------
+   Footer
+   --------------------------------------------------------------------------- */
+#footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+#footer.hidden {
+  display: none;
+}
+
+#send-rate {
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+#bridge-address {
+  color: var(--color-text-secondary);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------------------
+   Responsive
+   --------------------------------------------------------------------------- */
+@media (max-width: 400px) {
+  body {
+    padding: var(--space-sm);
+  }
+
+  #slot-number {
+    font-size: 26px;
+  }
+
+  .sensor-group {
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  .axis-value {
+    font-size: 12px;
+    min-width: 48px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Reduced Motion
+   --------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .dot,
+  .btn-primary,
+  .bar-fill {
+    transition: none;
+  }
+}
