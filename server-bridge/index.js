@@ -146,8 +146,11 @@ const MIME_TYPES = {
 };
 
 const httpServer = http.createServer((req, res) => {
+  const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
+  const pathname = parsedUrl.pathname;
+
   // Health check endpoint
-  if (req.url === '/health') {
+  if (pathname === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       status: 'ok',
@@ -158,8 +161,13 @@ const httpServer = http.createServer((req, res) => {
     return;
   }
 
-  // Serve static files from public/
-  let filePath = path.join(__dirname, 'public', req.url === '/' ? 'index.html' : req.url);
+  // Serve static files
+  let filePath;
+  if (pathname.startsWith('/phone-client/')) {
+    filePath = path.join(__dirname, '..', 'phone-client', pathname.replace('/phone-client/', ''));
+  } else {
+    filePath = path.join(__dirname, 'public', pathname === '/' ? 'index.html' : pathname);
+  }
   const ext = path.extname(filePath);
   const contentType = MIME_TYPES[ext] || 'application/octet-stream';
 
@@ -388,11 +396,12 @@ function handleSensorMessage(ws, info, msg) {
 
 const heartbeatTimer = setInterval(() => {
   const now = Date.now();
-  const deadConns = [];
 
   for (const [ws, info] of connections) {
-    if (ws.readyState !== 1) { // WebSocket.OPEN
-      deadConns.push(ws);
+    // Non-open connections: force-close so the close event handler
+    // runs proper cleanup (slot free, disconnect broadcast).
+    if (ws.readyState !== 1) {
+      ws.terminate();
       continue;
     }
 
@@ -400,22 +409,15 @@ const heartbeatTimer = setInterval(() => {
     if (now - info.lastSeen > ZOMBIE_TIMEOUT) {
       console.log(`[zombie] Closing zombie connection #${info.id} (slot ${info.slot}, role: ${info.role})`);
       ws.close(4002, 'Zombie timeout');
-      deadConns.push(ws);
       continue;
     }
 
-    // Send ping
+    // Send ping — failure means the socket is gone
     try {
       ws.ping();
     } catch (e) {
-      deadConns.push(ws);
+      ws.terminate();
     }
-  }
-
-  // Clean up dead connections (close event handler handles the rest)
-  for (const dead of deadConns) {
-    connections.delete(dead);
-    players.delete(dead);
   }
 }, HEARTBEAT_INTERVAL);
 
