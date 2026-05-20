@@ -1,4 +1,4 @@
-let dm, ws, audioBus, started = false;
+let dm, v, ws, audioBus, started = false;
 let deviceCount = 0;
 let connected = false;
 let statusMessage = 'Disconnected';
@@ -11,13 +11,18 @@ function setup() {
 
   audioBus = new AudioBus();
   const engine = new SoundEngine(audioBus);
-  dm = new DeviceManager(engine, CONFIG);
+  v = new Visuals(CONFIG);
+  dm = new DeviceManager(engine, CONFIG, v);
 
   connectWebSocket();
 }
 
 function draw() {
   background(0, 0, 8);
+
+  if (v) {
+    v.drawAll(dm.activeSlots, CONFIG);
+  }
 
   dm.drawHUD();
 

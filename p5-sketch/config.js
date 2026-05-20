@@ -27,6 +27,7 @@ const CONFIG = {
     // --- Synth types (0-4) ---
     {
       soundType: "synthBasic",
+      visualType: "pulsingCircle",
       slotIndex: 0,
       color: { h: 0, s: 80, b: 90 },
       sensorMap: {
@@ -36,6 +37,7 @@ const CONFIG = {
     },
     {
       soundType: "synthFM",
+      visualType: "rotatingLine",
       slotIndex: 1,
       color: { h: 12, s: 80, b: 90 },
       sensorMap: {
@@ -45,6 +47,7 @@ const CONFIG = {
     },
     {
       soundType: "synthAM",
+      visualType: "arcSweep",
       slotIndex: 2,
       color: { h: 24, s: 80, b: 90 },
       sensorMap: {
@@ -54,6 +57,7 @@ const CONFIG = {
     },
     {
       soundType: "synthDuo",
+      visualType: "polygon",
       slotIndex: 3,
       color: { h: 36, s: 80, b: 90 },
       sensorMap: {
@@ -63,6 +67,7 @@ const CONFIG = {
     },
     {
       soundType: "synthMono",
+      visualType: "spiral",
       slotIndex: 4,
       color: { h: 48, s: 80, b: 90 },
       sensorMap: {
@@ -74,6 +79,7 @@ const CONFIG = {
     // --- Arp types (5-8) ---
     {
       soundType: "arpRate",
+      visualType: "connectedDots",
       slotIndex: 5,
       color: { h: 60, s: 80, b: 90 },
       sensorMap: {
@@ -83,6 +89,7 @@ const CONFIG = {
     },
     {
       soundType: "arpPattern",
+      visualType: "waveAmplitude",
       slotIndex: 6,
       color: { h: 72, s: 80, b: 90 },
       sensorMap: {
@@ -92,6 +99,7 @@ const CONFIG = {
     },
     {
       soundType: "arpGate",
+      visualType: "lissajous",
       slotIndex: 7,
       color: { h: 84, s: 80, b: 90 },
       sensorMap: {
@@ -101,6 +109,7 @@ const CONFIG = {
     },
     {
       soundType: "arpDirection",
+      visualType: "concentricRings",
       slotIndex: 8,
       color: { h: 96, s: 80, b: 90 },
       sensorMap: {
@@ -112,6 +121,7 @@ const CONFIG = {
     // --- Noise types (9-11) ---
     {
       soundType: "noiseWhite",
+      visualType: "particleCloud",
       slotIndex: 9,
       color: { h: 108, s: 80, b: 90 },
       sensorMap: {
@@ -121,6 +131,7 @@ const CONFIG = {
     },
     {
       soundType: "noisePink",
+      visualType: "oscilloscopeTrail",
       slotIndex: 10,
       color: { h: 120, s: 80, b: 90 },
       sensorMap: {
@@ -130,6 +141,7 @@ const CONFIG = {
     },
     {
       soundType: "noiseBrown",
+      visualType: "wobblyCircle",
       slotIndex: 11,
       color: { h: 132, s: 80, b: 90 },
       sensorMap: {
@@ -141,6 +153,7 @@ const CONFIG = {
     // --- Drum types (12-16) ---
     {
       soundType: "kick",
+      visualType: "expandingRing",
       slotIndex: 12,
       color: { h: 144, s: 80, b: 90 },
       sensorMap: {
@@ -150,6 +163,7 @@ const CONFIG = {
     },
     {
       soundType: "snare",
+      visualType: "starburst",
       slotIndex: 13,
       color: { h: 156, s: 80, b: 90 },
       sensorMap: {
@@ -159,6 +173,7 @@ const CONFIG = {
     },
     {
       soundType: "hiHat",
+      visualType: "glowingDot",
       slotIndex: 14,
       color: { h: 168, s: 80, b: 90 },
       sensorMap: {
@@ -168,6 +183,7 @@ const CONFIG = {
     },
     {
       soundType: "drumPattern",
+      visualType: "pulseFlash",
       slotIndex: 15,
       color: { h: 180, s: 80, b: 90 },
       sensorMap: {
@@ -177,6 +193,7 @@ const CONFIG = {
     },
     {
       soundType: "tom",
+      visualType: "bouncingBall",
       slotIndex: 16,
       color: { h: 192, s: 80, b: 90 },
       sensorMap: {
@@ -188,6 +205,7 @@ const CONFIG = {
     // --- FX types (17-20) ---
     {
       soundType: "bitcrush",
+      visualType: "pixelatedGrid",
       slotIndex: 17,
       color: { h: 204, s: 80, b: 90 },
       sensorMap: {
@@ -197,6 +215,7 @@ const CONFIG = {
     },
     {
       soundType: "stutter",
+      visualType: "stutterStrobe",
       slotIndex: 18,
       color: { h: 216, s: 80, b: 90 },
       sensorMap: {
@@ -206,6 +225,7 @@ const CONFIG = {
     },
     {
       soundType: "wavefold",
+      visualType: "foldedWaveform",
       slotIndex: 19,
       color: { h: 228, s: 80, b: 90 },
       sensorMap: {
@@ -215,6 +235,7 @@ const CONFIG = {
     },
     {
       soundType: "glitchRandom",
+      visualType: "jitterOffset",
       slotIndex: 20,
       color: { h: 240, s: 80, b: 90 },
       sensorMap: {
@@ -226,6 +247,7 @@ const CONFIG = {
     // --- Granular types (21-24) ---
     {
       soundType: "grainSize",
+      visualType: "scatteredGrains",
       slotIndex: 21,
       color: { h: 252, s: 80, b: 90 },
       sensorMap: {
@@ -235,6 +257,7 @@ const CONFIG = {
     },
     {
       soundType: "grainDensity",
+      visualType: "particleFountain",
       slotIndex: 22,
       color: { h: 264, s: 80, b: 90 },
       sensorMap: {
@@ -244,6 +267,7 @@ const CONFIG = {
     },
     {
       soundType: "grainScatter",
+      visualType: "randomBlink",
       slotIndex: 23,
       color: { h: 276, s: 80, b: 90 },
       sensorMap: {
@@ -253,6 +277,7 @@ const CONFIG = {
     },
     {
       soundType: "grainPosition",
+      visualType: "slidingWindow",
       slotIndex: 24,
       color: { h: 288, s: 80, b: 90 },
       sensorMap: {
@@ -264,6 +289,7 @@ const CONFIG = {
     // --- FX Bus Modulator types (25-29) ---
     {
       soundType: "reverb",
+      visualType: "abstractShape",
       slotIndex: 25,
       isFxModulator: true,
       color: { h: 300, s: 80, b: 90 },
@@ -274,6 +300,7 @@ const CONFIG = {
     },
     {
       soundType: "delay",
+      visualType: "echoGhosts",
       slotIndex: 26,
       isFxModulator: true,
       color: { h: 312, s: 80, b: 90 },
@@ -284,6 +311,7 @@ const CONFIG = {
     },
     {
       soundType: "distortion",
+      visualType: "warpDistortion",
       slotIndex: 27,
       isFxModulator: true,
       color: { h: 324, s: 80, b: 90 },
@@ -294,6 +322,7 @@ const CONFIG = {
     },
     {
       soundType: "chorus",
+      visualType: "rippleRings",
       slotIndex: 28,
       isFxModulator: true,
       color: { h: 336, s: 80, b: 90 },
@@ -304,6 +333,7 @@ const CONFIG = {
     },
     {
       soundType: "compressor",
+      visualType: "thresholdBars",
       slotIndex: 29,
       isFxModulator: true,
       color: { h: 348, s: 80, b: 90 },

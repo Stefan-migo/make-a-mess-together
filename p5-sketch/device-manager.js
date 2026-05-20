@@ -1,10 +1,12 @@
 (function(global) {
   class DeviceManager {
-    constructor(soundEngine, config) {
+    constructor(soundEngine, config, visuals) {
       this._engine = soundEngine;
       this._config = config;
+      this._visuals = visuals;
       this._voices = {};
       this._sensorCache = {};
+      this._visualStates = {};
     }
 
     assign(slot) {
@@ -18,12 +20,19 @@
       if (voice) {
         this._voices[slot] = voice;
       }
+      if (this._visuals) {
+        this._visualStates[slot] = this._visuals.createVisual(slot);
+      }
     }
 
     disconnect(slot) {
       if (this._voices[slot]) {
         this._engine.disposeVoice(this._voices[slot]);
         delete this._voices[slot];
+      }
+      if (this._visuals && this._visualStates[slot]) {
+        this._visuals.disposeVisual(slot);
+        delete this._visualStates[slot];
       }
     }
 
@@ -68,6 +77,10 @@
       this._sensorCache[slot] = data;
 
       this._engine.updateVoice(voice, mapped, this._config);
+
+      if (this._visuals && this._visualStates[slot]) {
+        this._visuals.updateVisual(slot, data, this._config);
+      }
     }
 
     get isSlotActive() {
@@ -114,6 +127,12 @@
     }
 
     disposeAll() {
+      if (this._visuals) {
+        for (const slot of Object.keys(this._visualStates)) {
+          this._visuals.disposeVisual(slot);
+        }
+        this._visualStates = {};
+      }
       for (const slot of Object.keys(this._voices)) {
         this._engine.disposeVoice(this._voices[slot]);
       }
