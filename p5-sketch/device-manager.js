@@ -1,9 +1,11 @@
 (function(global) {
   class DeviceManager {
-    constructor(soundEngine, config, visuals) {
+    constructor(soundEngine, config, visuals, cubeSnek, brushCanvas) {
       this._engine = soundEngine;
       this._config = config;
       this._visuals = visuals;
+      this._cubeSnek = cubeSnek || null;
+      this._brushCanvas = brushCanvas || null;
       this._voices = {};
       this._sensorCache = {};
       this._visualStates = {};
@@ -23,6 +25,18 @@
       if (this._visuals) {
         this._visualStates[slot] = this._visuals.createVisual(slot);
       }
+      if (this._cubeSnek) {
+        this._cubeSnek.createCursor(slot);
+      }
+      // Create brush cursor if brushCanvas is available
+      if (this._brushCanvas) {
+        const brushType = (slotConfig.soundTypes && slotConfig.soundTypes[slot])
+          || slotConfig.brushType
+          || getBrushNames()[slot % getBrushNames().length]
+          || 'classic';
+        const color = slotConfig.color || { h: (slot * 12) % 360, s: 80, b: 90 };
+        this._brushCanvas.createCursor(slot, brushType, color);
+      }
     }
 
     disconnect(slot) {
@@ -33,6 +47,13 @@
       if (this._visuals && this._visualStates[slot]) {
         this._visuals.disposeVisual(slot);
         delete this._visualStates[slot];
+      }
+      if (this._cubeSnek) {
+        this._cubeSnek.disposeCursor(slot);
+      }
+      // Dispose brush cursor
+      if (this._brushCanvas) {
+        this._brushCanvas.disposeCursor(slot);
       }
     }
 
@@ -80,6 +101,15 @@
 
       if (this._visuals && this._visualStates[slot]) {
         this._visuals.updateVisual(slot, data, this._config);
+      }
+
+      if (this._cubeSnek) {
+        this._cubeSnek.updateSensor(slot, sensorType, data);
+      }
+
+      // Update brush cursor
+      if (this._brushCanvas) {
+        this._brushCanvas.updateCursor(slot, data);
       }
     }
 
@@ -138,6 +168,7 @@
       }
       this._voices = {};
       this._sensorCache = {};
+      // BrushCanvas cursors are managed independently via disposeCursor
     }
   }
 
