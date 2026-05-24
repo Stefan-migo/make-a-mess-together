@@ -1,4 +1,6 @@
 let dm, v, ws, audioBus, started = false;
+let cubeSnek, modeManager;
+let brushCanvas;
 let deviceCount = 0;
 let connected = false;
 let statusMessage = 'Disconnected';
@@ -12,7 +14,19 @@ function setup() {
   audioBus = new AudioBus();
   const engine = new SoundEngine(audioBus);
   v = new Visuals(CONFIG);
-  dm = new DeviceManager(engine, CONFIG, v);
+  cubeSnek = new CubeSnekEngine(CONFIG);
+
+  // Initialize shared brush canvas (WEBGL paint buffer)
+  brushCanvas = new BrushCanvas(CONFIG);
+
+  dm = new DeviceManager(engine, CONFIG, v, cubeSnek, brushCanvas);
+  modeManager = new VisualModeManager(v, cubeSnek);
+
+  cubeSnek._onNestingChange = (slot, level) => {
+    if (engine && engine.setNesting) {
+      engine.setNesting(slot, level);
+    }
+  };
 
   connectWebSocket();
 }
@@ -20,8 +34,21 @@ function setup() {
 function draw() {
   background(0, 0, 8);
 
-  if (v) {
-    v.drawAll(dm.activeSlots, CONFIG);
+  // Draw brush canvas paint buffer (shared persistent canvas)
+  if (brushCanvas) {
+    brushCanvas.drawAll();
+    if (brushCanvas.paintBuffer && typeof brushCanvas.paintBuffer.isWebGL !== 'undefined') {
+      // Render paint buffer to main canvas
+      const pb = brushCanvas.paintBuffer;
+      if (typeof image === 'function' && typeof pb.canvas !== 'undefined') {
+        image(pb, 0, 0);
+      }
+    }
+  }
+
+  // Draw legacy visuals (if brush canvas only, this could be removed)
+  if (modeManager) {
+    modeManager.draw(dm.activeSlots, dm._cubeSnek ? dm._sensorCache : {});
   }
 
   dm.drawHUD();
@@ -44,6 +71,12 @@ function draw() {
   fill(0, 0, 100, 0.4);
   textSize(12);
   text(CONFIG.bridgeUrl, pad, pad + 56);
+
+  const modeStr = modeManager ? modeManager.mode.toUpperCase() : 'RADIAL';
+  fill(0, 0, 100, 0.5);
+  textSize(14);
+  text('Mode: ' + modeStr + "  ['c' to toggle]", pad, pad + 76);
+
   pop();
 }
 
@@ -55,6 +88,19 @@ function mousePressed() {
     if (overlay) {
       overlay.style.display = 'none';
     }
+  }
+}
+
+function mouseDragged() {
+  if (cubeSnek && modeManager && modeManager.mode === 'cube') {
+    cubeSnek.handleMouseDrag(mouseX - pmouseX, mouseY - pmouseY);
+  }
+}
+
+function mouseWheel(event) {
+  if (cubeSnek && modeManager && modeManager.mode === 'cube') {
+    cubeSnek.handleMouseWheel(event.delta);
+    return false;
   }
 }
 
@@ -127,6 +173,58 @@ function handleMessage(msg) {
     case 'sensor':
       dm.updateSensor(msg.slot, msg.sensor, msg.data);
       break;
+  }
+}
+
+function keyPressed() {
+  if (key === 'c' || key === 'C') {
+    if (modeManager) modeManager.toggle();
+  }
+  if (key === 'b' || key === 'B') {
+    // Toggle brush canvas visibility
+    if (brushCanvas) {
+      brushCanvas._visible = !brushCanvas._visible;
+    }
+  }
+}
+
+class VisualModeManager {
+  constructor(visuals, cubeSnek) {
+    this._visuals = visuals;
+    this._cubeSnek = cubeSnek;
+    this._cubeBuffer = null;
+    this.mode = 'radial';
+  }
+
+  toggle() {
+    this.mode = (this.mode === 'radial') ? 'cube' : 'radial';
+    if (this._cubeBuffer) {
+      this._cubeBuffer.remove();
+      this._cubeBuffer = null;
+    }
+  }
+
+  draw(activeSlots, sensorCache) {
+    if (this.mode === 'radial') {
+      if (this._visuals) {
+        this._visuals.drawAll(activeSlots, CONFIG);
+      }
+    } else {
+      if (this._cubeSnek) {
+        if (!this._cubeBuffer) {
+          this._cubeBuffer = createGraphics(CONFIG.canvasWidth, CONFIG.canvasHeight, WEBGL);
+        }
+        const buf = this._cubeBuffer;
+        buf.background(0, 0, 8);
+        buf.colorMode(HSB, 360, 100, 100, 1);
+
+        buf.push();
+        this._cubeSnek.draw(buf, activeSlots, sensorCache);
+        buf.pop();
+
+        image(buf, 0, 0);
+      }
+    }
   }
 }
 
