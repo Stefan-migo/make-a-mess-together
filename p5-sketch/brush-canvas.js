@@ -41,9 +41,26 @@
       this.scatter = 0;
       this.angle = 0;
       this.hueShift = 0;
-      this.lastUpdate = 0;
+      this.lastUpdate = Date.now();
       // EMA smoothing coefficient (0.0 = no smoothing, 1.0 = instant)
       this.smoothing = 0.3;
+      // Persistent brush state (for brushes needing history like sketchyPoints)
+      this._brushState = {};
+
+      // --- Phase 3: Lifecycle Properties ---
+
+      // Connection blink: brief visual pulse on connection
+      this.connectionTime = Date.now();
+      this.isBlinking = true;
+      this.blinkDuration = 1000; // 1 second blink
+
+      // Idle state: cursor fades when inactive
+      this.isIdle = false;
+      this.idleOpacity = 1.0;
+
+      // Disconnect fade: smooth removal instead of instant vanish
+      this.disconnecting = false;
+      this.disconnectFadeStart = 0;
     }
   }
 
@@ -66,6 +83,10 @@
       this._visible = true;
       this.fadeInterval = config.canvasFadeInterval || 60;
       this.fadeRate = config.canvasFadeRate || 0.005;
+
+      // --- Phase 3: Lifecycle Config ---
+      this.idleTimeout = config.idleTimeout || 5000;        // ms before cursor goes idle
+      this.disconnectFadeDuration = config.disconnectFadeDuration || 3000;  // ms for disconnect fade
 
       // Create or accept paint buffer
       if (paintBuffer) {
@@ -168,21 +189,33 @@
 
     /**
      * Remove cursor and free slot
+     * If cursor exists, starts a disconnect fade instead of instant removal.
+     * The cursor is actually removed later via _cleanupExpiredCursors().
      * @param {number} slot
+     * @param {boolean} [instant=false] - If true, removes immediately (for cleanup)
      */
-    disposeCursor(slot) {
-      if (this.cursors[slot]) {
+    disposeCursor(slot, instant) {
+      const cursor = this.cursors[slot];
+      if (!cursor) return;
+
+      if (instant) {
         delete this.cursors[slot];
         this.cursors[slot] = null;
+        return;
       }
+
+      // Start disconnect fade
+      cursor.disconnecting = true;
+      cursor.disconnectFadeStart = Date.now();
+      cursor.active = false; // stop position updates
     }
 
     /**
-     * Get count of active cursors
+     * Get count of active (non-disconnecting) cursors
      * @returns {number}
      */
     get activeCount() {
-      return this.cursors.filter(c => c !== null).length;
+      return this.cursors.filter(c => c !== null && !c.disconnecting).length;
     }
 
     // ============================================================
@@ -191,13 +224,77 @@
 
     /**
      * Draw all cursors (called from sketch.js draw())
-     * Delegates to paintBuffer rendering
+     * Updates lifecycle state (blink, idle, disconnect fade)
+     * and cleans up expired cursors
      */
     drawAll() {
       this.frameCount++;
-      // Apply fade periodically
+
+      // Update lifecycle state for all cursors
+      for (const cursor of this.cursors) {
+        if (!cursor) continue;
+        if (!cursor.disconnecting) {
+          this._updateCursorBlink(cursor);
+          this._updateCursorIdle(cursor);
+        }
+      }
+
+      // Clean up fully-faded disconnecting cursors
+      this._cleanupExpiredCursors();
+
+      // Apply canvas fade periodically
       if (this.frameCount % this.fadeInterval === 0) {
         this.applyFade();
+      }
+    }
+
+    // ============================================================
+    // Phase 3: Lifecycle Methods
+    // ============================================================
+
+    /**
+     * Update cursor connection blink state
+     * Blinks for blinkDuration ms, then resolves
+     * @param {BrushCursor} cursor
+     */
+    _updateCursorBlink(cursor) {
+      if (!cursor.isBlinking) return;
+      const elapsed = Date.now() - cursor.connectionTime;
+      if (elapsed >= cursor.blinkDuration) {
+        cursor.isBlinking = false;
+      }
+    }
+
+    /**
+     * Update cursor idle state
+     * If lastUpdate is older than idleTimeout, marks cursor as idle
+     * @param {BrushCursor} cursor
+     */
+    _updateCursorIdle(cursor) {
+      const elapsed = Date.now() - cursor.lastUpdate;
+      if (elapsed >= this.idleTimeout) {
+        cursor.isIdle = true;
+        // Gradually reduce idle opacity
+        cursor.idleOpacity = Math.max(0.1, cursor.idleOpacity - 0.01);
+      } else {
+        cursor.isIdle = false;
+        // Recover idle opacity when active again
+        cursor.idleOpacity = Math.min(1.0, cursor.idleOpacity + 0.05);
+      }
+    }
+
+    /**
+     * Remove cursors whose disconnect fade has completed
+     */
+    _cleanupExpiredCursors() {
+      for (let i = 0; i < this.cursors.length; i++) {
+        const cursor = this.cursors[i];
+        if (!cursor || !cursor.disconnecting) continue;
+        const elapsed = Date.now() - cursor.disconnectFadeStart;
+        if (elapsed >= this.disconnectFadeDuration) {
+          delete this.cursors[i];
+          this.cursors[i] = null;
+        }
       }
     }
 
@@ -294,20 +391,52 @@
 
     /**
      * Draw a brush stroke using brush-registry
+     * Converts HSB color to RGB for brush functions (user's algorithms expect RGB)
+     * Applies lifecycle effects: blink pulse, idle fade, disconnect fade
      */
     _drawBrush(cursor) {
       if (!this.paintBuffer) return;
 
       const pb = this.paintBuffer;
-      const color = cursor.color;
+      const hsbColor = cursor.color;
 
-      // Build opts for brush
+      // Compute effective opacity with lifecycle modifiers
+      let effectiveOpacity = cursor.opacity * hsbColor.a;
+
+      // Connection blink: pulse opacity for first blinkDuration
+      if (cursor.isBlinking) {
+        const elapsed = Date.now() - cursor.connectionTime;
+        const blinkPhase = (elapsed % 400) / 400; // pulse every 400ms
+        const blinkPulse = 0.5 + Math.sin(blinkPhase * Math.PI * 2) * 0.5;
+        effectiveOpacity *= (0.7 + blinkPulse * 0.3);
+      }
+
+      // Idle fade: reduce opacity gradually
+      if (cursor.isIdle) {
+        effectiveOpacity *= cursor.idleOpacity;
+      }
+
+      // Disconnect fade: ramp opacity to zero
+      if (cursor.disconnecting) {
+        const elapsed = Date.now() - cursor.disconnectFadeStart;
+        const fadeProgress = Math.min(1, elapsed / this.disconnectFadeDuration);
+        effectiveOpacity *= (1 - fadeProgress);
+      }
+
+      // Convert HSB to RGB for brush functions
+      const rgb = hsbToRgb(hsbColor.h, hsbColor.s, hsbColor.b);
+      const color = { r: rgb.r, g: rgb.g, b: rgb.b };
+
+      // Build opts for brush (user's algorithms expect RGB color + alpha 0-255)
       const opts = {
+        alpha: Math.round(effectiveOpacity * 255),
+        frameCount: this.frameCount,
+        state: cursor._brushState,
         scatter: cursor.scatter,
         angle: cursor.angle,
         hueShift: cursor.hueShift,
         blendMode: 'normal',
-        saturation: cursor.color.s
+        saturation: hsbColor.s
       };
 
       // Try using brush registry first
@@ -327,7 +456,7 @@
       // Fallback: Simple ellipse stroke
       if (typeof pb.noStroke === 'function') pb.noStroke();
       if (typeof pb.fill === 'function') {
-        pb.fill(color.h, color.s, color.b, cursor.opacity);
+        pb.fill(hsbColor.h, hsbColor.s, hsbColor.b, effectiveOpacity);
       }
       if (typeof pb.ellipse === 'function') {
         const d = this._dist(cursor.prevX, cursor.prevY, cursor.x, cursor.y);
@@ -364,6 +493,43 @@
     const norm = (value - inMin) / (inMax - inMin);
     const clamped = Math.max(0, Math.min(1, norm));
     return outMin + clamped * (outMax - outMin);
+  }
+
+  /**
+   * Convert HSB (0-360, 0-100, 0-100) to RGB (0-255)
+   */
+  function hsbToRgb(h, s, b) {
+    const hue = ((h % 360) + 360) % 360;
+    const saturation = Math.max(0, Math.min(100, s)) / 100;
+    const brightness = Math.max(0, Math.min(100, b)) / 100;
+
+    if (saturation === 0) {
+      const v = Math.round(brightness * 255);
+      return { r: v, g: v, b: v };
+    }
+
+    const f = hue / 60;
+    const i = Math.floor(f);
+    const rgb = [
+      brightness,
+      brightness * (1 - saturation),
+      brightness * (1 - saturation * (1 - ((f - i) % 1))),
+      brightness * (1 - saturation * ((f - i) % 1))
+    ];
+    const vals = [
+      [rgb[0], rgb[3], rgb[1]],
+      [rgb[2], rgb[0], rgb[1]],
+      [rgb[1], rgb[0], rgb[3]],
+      [rgb[1], rgb[2], rgb[0]],
+      [rgb[3], rgb[1], rgb[0]],
+      [rgb[0], rgb[1], rgb[2]]
+    ][i % 6];
+
+    return {
+      r: Math.round(vals[0] * 255),
+      g: Math.round(vals[1] * 255),
+      b: Math.round(vals[2] * 255)
+    };
   }
 
   // ============================================================

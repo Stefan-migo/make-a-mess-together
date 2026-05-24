@@ -163,12 +163,12 @@ describe('BrushCanvas — Foundation', () => {
     expect(canvas.getCursor(0).hasPrev).toBe(true);
   });
 
-  test('T006: disposeCursor removes cursor', () => {
+  test('T006: disposeCursor removes cursor (instant mode)', () => {
     const mockPg = createMockGraphics();
     const canvas = new BrushCanvas(mockConfig, mockPg);
     canvas.createCursor(0, 'classic');
     expect(canvas.getCursor(0)).toBeDefined();
-    canvas.disposeCursor(0);
+    canvas.disposeCursor(0, true); // instant removal
     expect(canvas.getCursor(0)).toBeNull();
   });
 
@@ -177,7 +177,7 @@ describe('BrushCanvas — Foundation', () => {
     const canvas = new BrushCanvas(mockConfig, mockPg);
     canvas.createCursor(0, 'classic');
     mockPg._calls = []; // reset call tracker
-    canvas.disposeCursor(0);
+    canvas.disposeCursor(0, true); // instant removal
     // After dispose, paint buffer should NOT have been cleared
     expect(mockPg._calls.includes('clear')).toBe(false);
   });
@@ -197,5 +197,65 @@ describe('BrushCanvas — Foundation', () => {
     mockPg.isWebGL = true;
     const canvas = new BrushCanvas(mockConfig, mockPg);
     expect(canvas.paintBuffer.isWebGL).toBe(true);
+  });
+});
+
+describe('BrushCanvas — Phase 3: Cursor Lifecycle', () => {
+
+  test('T010: createCursor sets connection blink state', () => {
+    const mockPg = createMockGraphics();
+    const canvas = new BrushCanvas(mockConfig, mockPg);
+    const cursor = canvas.createCursor(0, 'classic');
+    expect(cursor.connectionTime).toBeDefined();
+    expect(typeof cursor.connectionTime).toBe('number');
+    expect(cursor.isBlinking).toBe(true);
+    expect(cursor.blinkDuration).toBeGreaterThan(0);
+  });
+
+  test('T011: cursor stops blinking after blinkDuration', () => {
+    const mockPg = createMockGraphics();
+    const canvas = new BrushCanvas(mockConfig, mockPg);
+    const cursor = canvas.createCursor(0, 'classic');
+    // If blinkDuration is 0, blink resolves immediately
+    cursor.blinkDuration = 0;
+    // Simulate drawAll calling _updateCursorBlink
+    canvas._updateCursorBlink(cursor);
+    expect(cursor.isBlinking).toBe(false);
+  });
+
+  test('T012: drawAll updates cursor idle state', () => {
+    const mockPg = createMockGraphics();
+    const canvas = new BrushCanvas(mockConfig, mockPg);
+    const cursor = canvas.createCursor(0, 'classic');
+    // Set lastUpdate to long ago
+    cursor.lastUpdate = Date.now() - 20000;
+    canvas.idleTimeout = 5000;
+    canvas.drawAll();
+    // Cursor should be marked as idle
+    expect(cursor.isIdle).toBe(true);
+  });
+
+  test('T013: disposeCursor starts disconnect fade instead of instant removal', () => {
+    const mockPg = createMockGraphics();
+    const canvas = new BrushCanvas(mockConfig, mockPg);
+    const cursor = canvas.createCursor(0, 'classic');
+    canvas.disposeCursor(0);
+    // Cursor should still exist but marked as disconnecting
+    expect(canvas.getCursor(0)).not.toBeNull();
+    expect(cursor.disconnecting).toBe(true);
+    expect(cursor.disconnectFadeStart).toBeGreaterThan(0);
+  });
+
+  test('T014: disconnecting cursor is removed after fade completes', () => {
+    const mockPg = createMockGraphics();
+    const canvas = new BrushCanvas(mockConfig, mockPg);
+    const cursor = canvas.createCursor(0, 'classic');
+    canvas.disposeCursor(0);
+    expect(cursor.disconnecting).toBe(true);
+    // Set disconnectFadeStart to long ago so fade is complete
+    cursor.disconnectFadeStart = Date.now() - 20000;
+    canvas.disconnectFadeDuration = 100;
+    canvas._cleanupExpiredCursors();
+    expect(canvas.getCursor(0)).toBeNull();
   });
 });
