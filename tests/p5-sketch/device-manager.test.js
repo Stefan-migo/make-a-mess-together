@@ -120,6 +120,13 @@ const testConfig = {
     slotIndex: i,
     color: { h: i * 12, s: 80, b: 90 },
     isFxModulator: i >= 25,
+    brushType: [
+      'classic', 'blade', 'dotted', 'stamped', 'velocity', 'dash',
+      'sketchy', 'watercolor', 'spray', 'chalk', 'smoke', 'furry',
+      'neon', 'plasma', 'vortex', 'bead', 'bubble', 'star',
+      'quantum', 'aurora', 'geometric', 'pixel', 'shattered', 'web',
+      'abstract', 'trail', 'isometric', 'triangulate', 'mirror-h', 'mirror-v'
+    ][i],
     sensorMap: {}
   }))
 };
@@ -205,5 +212,62 @@ describe('DeviceManager', () => {
     expect(active).toContain(5);
     expect(active).toContain(8);
     expect(active.length).toBe(3);
+  });
+});
+
+describe('DeviceManager — Phase 5: Stripped Dependencies', () => {
+
+  function makeBrushCanvas() {
+    const bc = new (require('../../p5-sketch/brush-canvas.js').BrushCanvas)(testConfig, {});
+    return bc;
+  }
+
+  test('T015: constructor works with just engine + config (no brushCanvas)', () => {
+    const bus = new (require('../../p5-sketch/audio-bus.js').AudioBus)();
+    const engine = new (require('../../p5-sketch/sound-engine.js').SoundEngine)(bus);
+    expect(() => {
+      const dm2 = new DeviceManager(engine, testConfig);
+      dm2.disposeAll();
+    }).not.toThrow();
+  });
+
+  test('T016: assign does NOT create _visualStates entries', () => {
+    const bus = new (require('../../p5-sketch/audio-bus.js').AudioBus)();
+    const engine = new (require('../../p5-sketch/sound-engine.js').SoundEngine)(bus);
+    const dm2 = new DeviceManager(engine, testConfig);
+    dm2.assign(0);
+    // After Phase 5, _visualStates should not exist
+    expect(dm2._visualStates).toBeUndefined();
+    dm2.disposeAll();
+  });
+
+  test('T017: no _cubeSnek property exists', () => {
+    const bus = new (require('../../p5-sketch/audio-bus.js').AudioBus)();
+    const engine = new (require('../../p5-sketch/sound-engine.js').SoundEngine)(bus);
+    const dm2 = new DeviceManager(engine, testConfig);
+    // After Phase 5, _cubeSnek should not exist
+    expect(dm2._cubeSnek).toBeUndefined();
+    dm2.disposeAll();
+  });
+
+  test('T018: assign creates brush cursor when brushCanvas provided', () => {
+    const bus = new (require('../../p5-sketch/audio-bus.js').AudioBus)();
+    const engine = new (require('../../p5-sketch/sound-engine.js').SoundEngine)(bus);
+    const bc = makeBrushCanvas();
+    const dm2 = new DeviceManager(engine, testConfig, bc);
+    dm2.assign(0);
+    expect(bc.getCursor(0)).not.toBeNull();
+    dm2.disposeAll();
+  });
+
+  test('T019: disconnect does not throw', () => {
+    const bus = new (require('../../p5-sketch/audio-bus.js').AudioBus)();
+    const engine = new (require('../../p5-sketch/sound-engine.js').SoundEngine)(bus);
+    const dm2 = new DeviceManager(engine, testConfig);
+    dm2.assign(0);
+    expect(() => {
+      dm2.disconnect(0);
+    }).not.toThrow();
+    dm2.disposeAll();
   });
 });

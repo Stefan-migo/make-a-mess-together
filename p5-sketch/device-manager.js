@@ -1,14 +1,11 @@
 (function(global) {
   class DeviceManager {
-    constructor(soundEngine, config, visuals, cubeSnek, brushCanvas) {
+    constructor(soundEngine, config, brushCanvas) {
       this._engine = soundEngine;
       this._config = config;
-      this._visuals = visuals;
-      this._cubeSnek = cubeSnek || null;
       this._brushCanvas = brushCanvas || null;
       this._voices = {};
       this._sensorCache = {};
-      this._visualStates = {};
     }
 
     assign(slot) {
@@ -22,18 +19,9 @@
       if (voice) {
         this._voices[slot] = voice;
       }
-      if (this._visuals) {
-        this._visualStates[slot] = this._visuals.createVisual(slot);
-      }
-      if (this._cubeSnek) {
-        this._cubeSnek.createCursor(slot);
-      }
-      // Create brush cursor if brushCanvas is available
+      // Create brush cursor
       if (this._brushCanvas) {
-        const brushType = (slotConfig.soundTypes && slotConfig.soundTypes[slot])
-          || slotConfig.brushType
-          || getBrushNames()[slot % getBrushNames().length]
-          || 'classic';
+        const brushType = slotConfig.brushType || 'classic';
         const color = slotConfig.color || { h: (slot * 12) % 360, s: 80, b: 90 };
         this._brushCanvas.createCursor(slot, brushType, color);
       }
@@ -44,14 +32,7 @@
         this._engine.disposeVoice(this._voices[slot]);
         delete this._voices[slot];
       }
-      if (this._visuals && this._visualStates[slot]) {
-        this._visuals.disposeVisual(slot);
-        delete this._visualStates[slot];
-      }
-      if (this._cubeSnek) {
-        this._cubeSnek.disposeCursor(slot);
-      }
-      // Dispose brush cursor
+      // Dispose brush cursor (fades out)
       if (this._brushCanvas) {
         this._brushCanvas.disposeCursor(slot);
       }
@@ -99,14 +80,6 @@
 
       this._engine.updateVoice(voice, mapped, this._config);
 
-      if (this._visuals && this._visualStates[slot]) {
-        this._visuals.updateVisual(slot, data, this._config);
-      }
-
-      if (this._cubeSnek) {
-        this._cubeSnek.updateSensor(slot, sensorType, data);
-      }
-
       // Update brush cursor
       if (this._brushCanvas) {
         this._brushCanvas.updateCursor(slot, data);
@@ -126,49 +99,16 @@
     }
 
     drawHUD() {
-      if (typeof p === 'undefined' && typeof window === 'undefined') return;
-      const p5 = typeof p !== 'undefined' ? p : window;
-
-      const cx = this._config.centerX;
-      const cy = this._config.centerY;
-      const radius = this._config.baseRadius;
-
-      for (const slot of this.activeSlots) {
-        const slotConfig = this._config.slots[slot];
-        if (!slotConfig) continue;
-
-        const angle = (slot / this._config.maxDevices) * Math.PI * 2;
-        const x = cx + Math.cos(angle) * radius;
-        const y = cy + Math.sin(angle) * radius;
-
-        const col = slotConfig.color;
-        const activity = this._voices[slot] && this._voices[slot].lastSensorData
-          ? 0.5 + Math.random() * 0.3
-          : 0.3;
-
-        const size = 6 + activity * 10;
-
-        if (p5.fill) {
-          p5.fill(col.h, col.s, col.b, 0.8);
-          p5.noStroke();
-          p5.circle(x, y, size);
-        }
-      }
+      // Simplified HUD — rendered via sketch.js overlay instead
     }
 
     disposeAll() {
-      if (this._visuals) {
-        for (const slot of Object.keys(this._visualStates)) {
-          this._visuals.disposeVisual(slot);
-        }
-        this._visualStates = {};
-      }
       for (const slot of Object.keys(this._voices)) {
         this._engine.disposeVoice(this._voices[slot]);
       }
       this._voices = {};
       this._sensorCache = {};
-      // BrushCanvas cursors are managed independently via disposeCursor
+      // BrushCanvas cursors fade out independently
     }
   }
 
