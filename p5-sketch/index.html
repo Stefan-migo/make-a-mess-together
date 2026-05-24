@@ -37,14 +37,27 @@
 <body>
   <div id="start-overlay">Click to start audio</div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+  <!-- p5.js 2.x (WEBGL support for p5.brush) -->
+  <script src="https://unpkg.com/p5@2.2.3/lib/p5.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
 
+  <!-- p5.brush.js for collaborative canvas brush system -->
+  <script src="https://unpkg.com/p5.brush@2.1.9-beta/dist/p5.brush.js"></script>
+
+  <!-- Core config -->
   <script src="config.js"></script>
   <script src="sensor-mapper.js"></script>
   <script src="audio-bus.js"></script>
   <script src="sound-engine.js"></script>
+
+  <!-- Visual renderers -->
   <script src="visuals.js"></script>
+  <script src="visuals-cube.js"></script>
+
+  <!-- Brush canvas system (replaces radial + cube visual modes) -->
+  <script src="brush-registry.js"></script>
+  <script src="brush-canvas.js"></script>
+
   <script src="device-manager.js"></script>
   <script src="sketch.js"></script>
 </body>
