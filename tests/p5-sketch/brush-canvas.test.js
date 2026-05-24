@@ -259,3 +259,82 @@ describe('BrushCanvas — Phase 3: Cursor Lifecycle', () => {
     expect(canvas.getCursor(0)).toBeNull();
   });
 });
+
+describe('BrushCanvas — Phase 8: Edge Cases & Stress', () => {
+
+  test('T020: 30-phone stress test — creates and manages all cursors', () => {
+    const mockPg = createMockGraphics();
+    const canvas = new BrushCanvas(mockConfig, mockPg);
+    // Create 30 cursors
+    for (let i = 0; i < 30; i++) {
+      canvas.createCursor(i, BRUSH_TYPES[i % BRUSH_TYPES.length]);
+    }
+    expect(canvas.activeCount).toBe(30);
+    // All cursors should be individually accessible
+    for (let i = 0; i < 30; i++) {
+      const c = canvas.getCursor(i);
+      expect(c).not.toBeNull();
+      expect(c.slot).toBe(i);
+      expect(c.brushType).toBe(BRUSH_TYPES[i % BRUSH_TYPES.length]);
+    }
+    // drawAll should work with 30 cursors
+    expect(() => canvas.drawAll()).not.toThrow();
+  });
+
+  test('T021: empty state — canvas with no cursors does not throw', () => {
+    const mockPg = createMockGraphics();
+    const canvas = new BrushCanvas(mockConfig, mockPg);
+    expect(canvas.activeCount).toBe(0);
+    expect(() => canvas.drawAll()).not.toThrow();
+    expect(() => canvas.applyFade()).not.toThrow();
+    expect(() => canvas._cleanupExpiredCursors()).not.toThrow();
+  });
+
+  test('T022: activeCount excludes disconnecting cursors', () => {
+    const mockPg = createMockGraphics();
+    const canvas = new BrushCanvas(mockConfig, mockPg);
+    canvas.createCursor(0, 'classic');
+    canvas.createCursor(1, 'classic');
+    canvas.createCursor(2, 'classic');
+    expect(canvas.activeCount).toBe(3);
+    // Start disconnect fade on slot 1
+    canvas.disposeCursor(1);
+    expect(canvas.activeCount).toBe(2);
+    // Instant-remove slot 2
+    canvas.disposeCursor(2, true);
+    expect(canvas.activeCount).toBe(1);
+  });
+
+  test('T023: cursor survives sensor update with missing orientation data', () => {
+    const mockPg = createMockGraphics();
+    const canvas = new BrushCanvas(mockConfig, mockPg);
+    canvas.createCursor(0, 'classic');
+    // Update with incomplete sensor data
+    expect(() => {
+      canvas.updateCursor(0, { accel: {}, gyro: {} });
+    }).not.toThrow();
+    const cursor = canvas.getCursor(0);
+    expect(cursor.hasPrev).toBe(true);
+    expect(typeof cursor.x).toBe('number');
+    expect(typeof cursor.y).toBe('number');
+  });
+
+  test('T024: disposeAll gracefully handles mixed cursor states', () => {
+    const mockPg = createMockGraphics();
+    const canvas = new BrushCanvas(mockConfig, mockPg);
+    // Mix of active, idle, and disconnecting cursors
+    canvas.createCursor(0, 'classic');
+    canvas.createCursor(1, 'blade');
+    canvas.createCursor(2, 'spray');
+    canvas.disposeCursor(1); // starts fade
+    // Instant-remove all
+    expect(() => {
+      for (let i = 0; i < canvas.cursors.length; i++) {
+        if (canvas.cursors[i]) {
+          canvas.disposeCursor(i, true);
+        }
+      }
+    }).not.toThrow();
+    expect(canvas.activeCount).toBe(0);
+  });
+});
