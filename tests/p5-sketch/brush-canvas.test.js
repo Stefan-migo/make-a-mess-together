@@ -192,11 +192,42 @@ describe('BrushCanvas — Foundation', () => {
     expect(hasFillAndRect).toBe(true);
   });
 
-  test('T009: paintBuffer is WEBGL (mock verifies)', () => {
+  test('T009: constructor preserves injected paintBuffer', () => {
     const mockPg = createMockGraphics();
     mockPg.isWebGL = true;
     const canvas = new BrushCanvas(mockConfig, mockPg);
+    expect(canvas.paintBuffer).toBe(mockPg);
+    // Existing property on injected mock is preserved
     expect(canvas.paintBuffer.isWebGL).toBe(true);
+  });
+
+  test('T025: _createPaintBuffer creates P2D (not WEBGL) buffer', () => {
+    // Mock p5.js globals for test environment
+    const originalCG = global.createGraphics;
+    const originalWEBGL = global.WEBGL;
+    const originalHSB = global.HSB;
+    global.WEBGL = 'WEBGL';
+    global.HSB = 'HSB';
+
+    let capturedRenderer = null;
+    global.createGraphics = (w, h, renderer) => {
+      capturedRenderer = renderer;
+      const mock = createMockGraphics();
+      return mock;
+    };
+
+    const canvas = new BrushCanvas(mockConfig);
+    // After fix, the auto-created paint buffer should NOT use WEBGL renderer
+    // (p5.brush is unused — WEBGL is unnecessary overhead + breaks P2D coordinates)
+    expect(capturedRenderer).not.toBe(global.WEBGL);
+
+    // Restore
+    delete global.createGraphics;
+    delete global.WEBGL;
+    delete global.HSB;
+    if (originalCG) global.createGraphics = originalCG;
+    if (originalWEBGL) global.WEBGL = originalWEBGL;
+    if (originalHSB) global.HSB = originalHSB;
   });
 });
 

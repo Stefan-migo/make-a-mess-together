@@ -102,10 +102,10 @@
      * (No-op in test environment; returns a placeholder object)
      */
     _createPaintBuffer() {
-      // In browser: return createGraphics(this.width, this.height, WEBGL);
-      // In test: return a mock-compatible object
+      // In browser: create a P2D graphics buffer
+      // (p5.brush is unused — WEBGL is unnecessary overhead and breaks P2D coordinates)
       if (typeof createGraphics !== 'undefined') {
-        const pg = createGraphics(this.width, this.height, WEBGL);
+        const pg = createGraphics(this.width, this.height);
         pg.colorMode(HSB, 360, 100, 100, 1);
         pg.noStroke();
         return pg;
@@ -114,8 +114,7 @@
       return {
         _isPaintBuffer: true,
         width: this.width,
-        height: this.height,
-        isWebGL: true
+        height: this.height
       };
     }
 
