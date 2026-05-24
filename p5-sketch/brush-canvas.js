@@ -63,6 +63,7 @@
       this.cursors = new Array(config.maxDevices || 30).fill(null);
       this.initialized = false;
       this.frameCount = 0;
+      this._visible = true;
       this.fadeInterval = config.canvasFadeInterval || 60;
       this.fadeRate = config.canvasFadeRate || 0.005;
 
