@@ -95,6 +95,16 @@
       } else {
         this.paintBuffer = this._createPaintBuffer();
       }
+
+      // Phase 6: Auto-calibration for sensor-to-canvas mapping
+      this._calibrated = false;
+      this._centerAlpha = 0;
+      this._centerBeta = 0;
+      this._smoothNormX = 0;
+      this._smoothNormY = 0;
+      this._smoothFactor = 0.4;
+      this._maxTiltDeg = 45;
+      this._sensitivityExponent = 0.6;
     }
 
     /**
@@ -329,13 +339,43 @@
       const alpha = orient.a !== undefined ? orient.a : 180;
       const beta = orient.b !== undefined ? orient.b : 0;
 
-      // Map alpha (0-360) to X (0 to width)
-      // Normalize so alpha=180 is center
-      const x = (alpha / 360) * this.width;
+      // Auto-calibrate on first reading
+      if (!this._calibrated) {
+        this._centerAlpha = alpha;
+        this._centerBeta = beta;
+        this._calibrated = true;
+        this._smoothNormX = 0;
+        this._smoothNormY = 0;
+        return { x: this.width / 2, y: this.height / 2 };
+      }
 
-      // Map beta (-180 to 180) to Y (0 to height)
-      // Normalize so beta=0 is center
-      const y = ((beta + 180) / 360) * this.height;
+      // Deviation from center (handle wraparound for alpha 0-360)
+      let deltaAlpha = alpha - this._centerAlpha;
+      if (deltaAlpha > 180) deltaAlpha -= 360;
+      if (deltaAlpha < -180) deltaAlpha += 360;
+
+      let deltaBeta = beta - this._centerBeta;
+
+      // Normalize to -1..+1
+      let normX = Math.max(-1, Math.min(1, deltaAlpha / this._maxTiltDeg));
+      let normY = Math.max(-1, Math.min(1, deltaBeta / this._maxTiltDeg));
+
+      // Apply EMA smoothing
+      this._smoothNormX = this._smoothNormX * (1 - this._smoothFactor) + normX * this._smoothFactor;
+      this._smoothNormY = this._smoothNormY * (1 - this._smoothFactor) + normY * this._smoothFactor;
+
+      // Apply sensitivity curve (fine control near center)
+      const curvedX = Math.sign(this._smoothNormX) * Math.pow(Math.abs(this._smoothNormX), this._sensitivityExponent);
+      const curvedY = Math.sign(this._smoothNormY) * Math.pow(Math.abs(this._smoothNormY), this._sensitivityExponent);
+
+      // Map to canvas with inversion fix
+      const margin = 40;
+      const radiusX = (this.width / 2) - margin;
+      const radiusY = (this.height / 2) - margin;
+
+      // Negate to fix inversion: deltaAlpha positive = turned right = cursor goes right
+      const x = (this.width / 2) + (-curvedX * radiusX);
+      const y = (this.height / 2) + (-curvedY * radiusY);
 
       return {
         x: Math.max(0, Math.min(this.width, x)),
