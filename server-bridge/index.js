@@ -170,9 +170,11 @@ function handleRequest(req, res) {
 
   // Serve static files
   let filePath;
-  // Bug #2: Handle /phone-client without trailing slash
+  // Bug #2: Redirect /phone-client to /phone-client/ so relative URLs (CSS/JS) resolve correctly
   if (pathname === '/phone-client') {
-    filePath = path.join(__dirname, '..', 'phone-client', 'index.html');
+    res.writeHead(302, { 'Location': '/phone-client/' });
+    res.end();
+    return;
   } else if (pathname.startsWith('/phone-client/')) {
     const relative = pathname.replace('/phone-client/', '');
     filePath = path.join(__dirname, '..', 'phone-client', relative || 'index.html');

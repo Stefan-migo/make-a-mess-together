@@ -178,7 +178,7 @@
       </div>
 
       <div style="text-align: center; margin-bottom: 1rem;">
-        <a class="btn" href="/p5" target="_blank">🎨 Open p5 Sketch</a>
+        <a class="btn" href="http://localhost:3000" target="_blank">🎨 Open p5 Sketch</a>
         <a class="btn btn-secondary" href="#" onclick="copyIp()">📋 Copy Address</a>
       </div>
 
@@ -212,12 +212,16 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
   <script>
-    // Get bridge IP from server
-    const bridgeIp = window.location.hostname || 'localhost';
-    const bridgePort = window.location.port || '8080';
-    const wsUrl = 'ws://' + bridgeIp + ':' + bridgePort;
+    // Detect HTTPS/WSS mode vs HTTP/WS mode
+    const isHttps = window.location.protocol === 'https:';
+    const bridgeHost = window.location.hostname || 'localhost';
+    // Port: when on HTTPS (tunnel), use no port (default 443); when on HTTP, use :8080
+    const bridgePort = window.location.port || (isHttps ? '' : '8080');
+    const protocol = isHttps ? 'wss' : 'ws';
+    const wsUrl = protocol + '://' + bridgeHost + (bridgePort ? ':' + bridgePort : '');
+    const displayAddress = bridgeHost + (bridgePort ? ':' + bridgePort : '');
 
-    document.getElementById('bridgeIp').textContent = bridgeIp + ':' + bridgePort;
+    document.getElementById('bridgeIp').textContent = displayAddress;
 
     // Generate QR code
     try {

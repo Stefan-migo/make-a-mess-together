@@ -22,7 +22,11 @@ describe('HTTP Routing', () => {
       http.get(`${baseUrl}${urlPath}`, (res) => {
         let body = '';
         res.on('data', chunk => body += chunk);
-        res.on('end', () => resolve({ statusCode: res.statusCode, body }));
+        res.on('end', () => resolve({
+          statusCode: res.statusCode,
+          headers: res.headers,
+          body
+        }));
       }).on('error', reject);
     });
   }
@@ -51,10 +55,10 @@ describe('HTTP Routing', () => {
   // Bug #2: /phone-client (no trailing slash) should work
   // -----------------------------------------------------------------------
 
-  test('serves phone-client index.html at /phone-client without trailing slash (Bug #2)', async () => {
+  test('redirects /phone-client to /phone-client/ so relative CSS/JS resolve correctly', async () => {
     const res = await fetch('/phone-client');
-    expect(res.statusCode).toBe(200);
-    expect(res.body).toContain('<!DOCTYPE html>');
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location || res.headers.Location).toBe('/phone-client/');
   });
 
   test('root / and health still work', async () => {
