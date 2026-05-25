@@ -39,6 +39,25 @@
     }
 
     updateSensor(slot, sensorType, data) {
+      // 1. Accumulate sensor data in combined cache (always)
+      if (!this._sensorCache[slot]) {
+        this._sensorCache[slot] = {};
+      }
+      const sensorTypeKey = sensorType === 'orientation' ? 'orientation' :
+                            sensorType === 'accel' ? 'accel' : 'gyro';
+      this._sensorCache[slot][sensorTypeKey] = { ...data };
+
+      // 2. Update brush cursor with combined data (always — independent of voice)
+      if (this._brushCanvas) {
+        const combined = {
+          accel: this._sensorCache[slot].accel || {},
+          gyro: this._sensorCache[slot].gyro || {},
+          orientation: this._sensorCache[slot].orientation || {}
+        };
+        this._brushCanvas.updateCursor(slot, combined);
+      }
+
+      // 3. Voice processing (only if voice exists)
       const voice = this._voices[slot];
       if (!voice) return;
 
@@ -76,14 +95,8 @@
       }
 
       voice.lastSensorData = mapped;
-      this._sensorCache[slot] = data;
 
       this._engine.updateVoice(voice, mapped, this._config);
-
-      // Update brush cursor
-      if (this._brushCanvas) {
-        this._brushCanvas.updateCursor(slot, data);
-      }
     }
 
     get isSlotActive() {
