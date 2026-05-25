@@ -5,7 +5,7 @@
    * BrushCanvas — Shared persistent canvas for collaborative multi-phone brush painting
    * 
    * Architecture:
-   *   Layer 1 (Offscreen paintBuffer): WEBGL createGraphics, NEVER cleared.
+   *   Layer 1 (Offscreen paintBuffer): P2D createGraphics, NEVER cleared.
    *     - All brush strokes render here via brush-registry.js
    *     - Fade mechanism applies gradually via semi-transparent overlay
    *   Layer 2 (On-screen canvas): Draws paintBuffer as image, overlays HUD

@@ -27,7 +27,7 @@ function draw() {
   // Draw brush canvas paint buffer (shared persistent canvas)
   if (brushCanvas) {
     brushCanvas.drawAll();
-    if (brushCanvas.paintBuffer && typeof brushCanvas.paintBuffer.isWebGL !== 'undefined') {
+    if (brushCanvas.paintBuffer) {
       const pb = brushCanvas.paintBuffer;
       if (typeof image === 'function' && typeof pb.canvas !== 'undefined') {
         image(pb, 0, 0);
