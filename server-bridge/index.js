@@ -26,7 +26,7 @@ const { MessageRelay } = require('./message-relay');
 // ---------------------------------------------------------------------------
 const PORT = parseInt(process.env.PORT, 10) || 8080;
 const HEARTBEAT_INTERVAL = 10000;  // 10s ping interval
-const ZOMBIE_TIMEOUT = 15000;     // 15s no-data = zombie
+const ZOMBIE_TIMEOUT = 30000;     // 30s no-data = zombie
 const COOLDOWN_MS = 5000;         // 5s slot cooldown
 
 // ---------------------------------------------------------------------------
@@ -414,6 +414,9 @@ const heartbeatTimer = setInterval(() => {
       ws.terminate();
       continue;
     }
+
+    // Skip zombie check for players — they're receive-only after initial message
+    if (info.role === 'player') continue;
 
     // Check for zombies (no data in ZOMBIE_TIMEOUT)
     if (now - info.lastSeen > ZOMBIE_TIMEOUT) {
