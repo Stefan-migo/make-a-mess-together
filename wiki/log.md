@@ -45,5 +45,18 @@ Session memory synced at 2026-05-08 01:38:11
 ## [2026-05-08] export | Engram snapshot exported to wiki/engram/
 Session memory synced at 2026-05-08 15:01:59
 
+## [2026-05-19] setup | Adapted for phone-sensor-orchestra
+CortexPlugin adapted for the phone-sensor-orchestra project. Changes: AGENTS.md
+rewritten with project-specific brain lobes and module structure, opencode.json
+updated to load PLAN.md, agent prompts tailored to bridge/phone/p5 domains, new
+phone-sensor-orchestra skill created, wiki seeded with architecture docs (data
+flow, WebSocket protocol, sensor mapping), constitution.md updated with project
+principles, project scripts added (run-bridge.sh, run-p5.sh, deploy-vercel.sh),
+project source directories created (server-bridge, phone-client, p5-sketch).
+Deps installed: Node 22, Python 3.14, Graphify, Spec-Kit, custom tools.
+
 ## [2026-05-18] cleanup | Wiki isolated to CortexPlugin only
 Archived all non-CortexPlugin project data from wiki/engram/ (mariachiunion, p2p, p2p-cortex, test-cortex, verify2, unknown — 59 files total). Kept only cortexplugin/ and cortex-plugin/ (name variant, same project). Remaining: 28 observation files + 4 session hubs. Archived data available at wiki/engram-archive/.
+
+## [2026-05-20] export | Engram snapshot exported to wiki/engram/
+Session memory synced at 2026-05-20 08:12:22

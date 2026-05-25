@@ -205,9 +205,9 @@ describe('BrushCanvas — Foundation', () => {
     // Mock p5.js globals for test environment
     const originalCG = global.createGraphics;
     const originalWEBGL = global.WEBGL;
-    const originalHSB = global.HSB;
+    const originalRGB = global.RGB;
     global.WEBGL = 'WEBGL';
-    global.HSB = 'HSB';
+    global.RGB = 'RGB';
 
     let capturedRenderer = null;
     global.createGraphics = (w, h, renderer) => {
@@ -224,10 +224,10 @@ describe('BrushCanvas — Foundation', () => {
     // Restore
     delete global.createGraphics;
     delete global.WEBGL;
-    delete global.HSB;
+    delete global.RGB;
     if (originalCG) global.createGraphics = originalCG;
     if (originalWEBGL) global.WEBGL = originalWEBGL;
-    if (originalHSB) global.HSB = originalHSB;
+    if (originalRGB) global.RGB = originalRGB;
   });
 });
 

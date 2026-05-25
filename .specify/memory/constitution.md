@@ -1,50 +1,53 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# phone-sensor-orchestra Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Sensor-First Design
+Every feature is driven by real sensor data. Sound and visual parameters map directly to accelerometer, gyroscope, and orientation axes. No synthetic control data.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### II. Real-Time First
+All data flows over LAN WebSocket for minimal latency. Bridge relays messages individually (not batched). Phone sends at 30fps — consistent stream, not burst.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### III. 30-Slot Architecture
+The system supports exactly 30 simultaneous devices. Each slot has a unique sound type and visual type. Slot zero is always the lowest available — linear scan, no priority.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### IV. Cleanup Discipline
+Every voice and visual must be disposable. On disconnect: free slot, dispose Tone.js nodes, remove visual elements. No memory leaks — WebAudio nodes must be explicitly disconnected.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### V. Simplicity
+Synthetic sounds only — no sample files. Minimal visual style — no textures, no external assets. CDN-loaded dependencies only.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+## Technology Stack
+- **Bridge**: Node.js with `ws` library + built-in HTTP server
+- **Phone Client**: Vanilla HTML/CSS/JS (no framework), DeviceMotion + DeviceOrientation APIs
+- **p5 Sketch**: p5.js 1.9, Tone.js 14.7, osc-js 2.4 (all CDN)
+- **Deploy**: Vercel for static files, local laptop for bridge + p5
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
-
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
-
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+## Development Workflow
+1. Spec-first: define sensor mapping in spec before coding
+2. Per-module commits: bridge / phone / p5 never mixed
+3. Verify data flow end-to-end after each module change
+4. Test with minimum 2 phones before marking done
+5. Document every sensor mapping decision in wiki
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
+This constitution supersedes general practices for phone-sensor-orchestra work. Sensor mapping decisions must be documented. Voice/visual type additions require spec approval.
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+### VI. Test-Driven Development
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+Every feature requires a failing test before implementation. No test = no code.
+
+**Scope**: All deterministic logic MUST be tested — slot allocation, sensor mapping, voice lifecycle, protocol parsing, state machines, mathematical computations.
+
+**Excluded from automated testing**: Visual rendering output (p5 draw calls), audio quality perception (subjective). Their *computation logic* IS tested.
+
+**The TDD Cycle**:
+1. **RED**: Write a failing test for ONE behavior. Run it → confirm it fails.
+2. **GREEN**: Write the MINIMUM implementation code to pass the test.
+3. **REFACTOR**: Clean up code while keeping the test green.
+
+**Discipline**: If a commit has no test, it MUST be one of the excluded categories and explicitly justified.
+
+**Tooling**: The community SpecTest extension (`spec-kit-spectest`) was not available at setup time. Re-check availability on next Spec-Kit update: `specify extension add spec-kit-spectest`.
+
+**Version**: 1.1.0 | **Ratified**: 2026-05-19

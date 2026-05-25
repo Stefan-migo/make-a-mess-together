@@ -116,7 +116,7 @@
       // (p5.brush is unused — WEBGL is unnecessary overhead and breaks P2D coordinates)
       if (typeof createGraphics !== 'undefined') {
         const pg = createGraphics(this.width, this.height);
-        pg.colorMode(HSB, 360, 100, 100, 1);
+        pg.colorMode(RGB, 255, 255, 255, 1);
         pg.noStroke();
         return pg;
       }
@@ -495,7 +495,8 @@
       // Fallback: Simple ellipse stroke
       if (typeof pb.noStroke === 'function') pb.noStroke();
       if (typeof pb.fill === 'function') {
-        pb.fill(hsbColor.h, hsbColor.s, hsbColor.b, effectiveOpacity);
+        const rgb = hsbToRgb(hsbColor.h, hsbColor.s, hsbColor.b);
+        pb.fill(rgb.r, rgb.g, rgb.b, effectiveOpacity);
       }
       if (typeof pb.ellipse === 'function') {
         const d = this._dist(cursor.prevX, cursor.prevY, cursor.x, cursor.y);

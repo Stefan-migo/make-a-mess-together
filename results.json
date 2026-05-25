@@ -1,0 +1,313 @@
+{
+  "testConfig": {
+    "count": 30,
+    "url": "ws://localhost:8080",
+    "pattern": "sine",
+    "interval": 33,
+    "duration": 120
+  },
+  "results": {
+    "totalMessagesSent": 81827,
+    "totalMessagesReceived": 30,
+    "averageLatencyMs": 3,
+    "maxLatencyMs": 5.5,
+    "minLatencyMs": 0.5,
+    "connectionErrors": 0,
+    "successfulConnections": 29,
+    "slotAssignments": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28
+    ],
+    "throughputPerSecond": [
+      198,
+      750,
+      785,
+      630,
+      744,
+      782,
+      647,
+      792,
+      817,
+      868,
+      832,
+      827,
+      868,
+      775,
+      725,
+      842,
+      855,
+      862,
+      842,
+      841,
+      858,
+      842,
+      841,
+      803,
+      835,
+      756,
+      849,
+      816,
+      789,
+      836,
+      810,
+      812,
+      755,
+      845,
+      855,
+      830,
+      807,
+      719,
+      826,
+      782,
+      797,
+      829,
+      812,
+      735,
+      638,
+      651,
+      748,
+      806,
+      813,
+      819,
+      843,
+      803,
+      783,
+      844,
+      870,
+      824,
+      825,
+      824,
+      839,
+      827,
+      792,
+      816,
+      870,
+      841,
+      788,
+      696,
+      728,
+      809,
+      637,
+      696,
+      402,
+      759,
+      796,
+      785,
+      806,
+      835,
+      582,
+      800,
+      696,
+      819,
+      788,
+      812,
+      813,
+      754,
+      812,
+      792,
+      764,
+      784,
+      841,
+      755,
+      788,
+      756,
+      813,
+      779,
+      771,
+      795,
+      815,
+      841,
+      810,
+      769,
+      735,
+      758,
+      745,
+      811,
+      125,
+      101,
+      30,
+      27,
+      25,
+      29,
+      28,
+      27,
+      26,
+      27,
+      28
+    ],
+    "perPhone": [
+      {
+        "slot": 0,
+        "messagesSent": 2825,
+        "avgLatencyMs": 3
+      },
+      {
+        "slot": 1,
+        "messagesSent": 2825,
+        "avgLatencyMs": 3
+      },
+      {
+        "slot": 2,
+        "messagesSent": 2824,
+        "avgLatencyMs": 3
+      },
+      {
+        "slot": 3,
+        "messagesSent": 2824,
+        "avgLatencyMs": 3
+      },
+      {
+        "slot": 4,
+        "messagesSent": 2823,
+        "avgLatencyMs": 3
+      },
+      {
+        "slot": 5,
+        "messagesSent": 2823,
+        "avgLatencyMs": 3
+      },
+      {
+        "slot": 6,
+        "messagesSent": 2822,
+        "avgLatencyMs": 3
+      },
+      {
+        "slot": 7,
+        "messagesSent": 2821,
+        "avgLatencyMs": 3
+      },
+      {
+        "slot": 8,
+        "messagesSent": 2819,
+        "avgLatencyMs": 3
+      },
+      {
+        "slot": 9,
+        "messagesSent": 2818,
+        "avgLatencyMs": 3
+      },
+      {
+        "slot": 10,
+        "messagesSent": 2816,
+        "avgLatencyMs": 2.9
+      },
+      {
+        "slot": 11,
+        "messagesSent": 2815,
+        "avgLatencyMs": 3
+      },
+      {
+        "slot": 12,
+        "messagesSent": 2816,
+        "avgLatencyMs": 3
+      },
+      {
+        "slot": 13,
+        "messagesSent": 2815,
+        "avgLatencyMs": 3
+      },
+      {
+        "slot": 14,
+        "messagesSent": 2813,
+        "avgLatencyMs": 3
+      },
+      {
+        "slot": 15,
+        "messagesSent": 2812,
+        "avgLatencyMs": 3
+      },
+      {
+        "slot": 16,
+        "messagesSent": 2810,
+        "avgLatencyMs": 3
+      },
+      {
+        "slot": 17,
+        "messagesSent": 2809,
+        "avgLatencyMs": 3
+      },
+      {
+        "slot": 18,
+        "messagesSent": 2807,
+        "avgLatencyMs": 3
+      },
+      {
+        "slot": 19,
+        "messagesSent": 2806,
+        "avgLatencyMs": 3
+      },
+      {
+        "slot": 20,
+        "messagesSent": 2804,
+        "avgLatencyMs": 3
+      },
+      {
+        "slot": 21,
+        "messagesSent": 2803,
+        "avgLatencyMs": 3
+      },
+      {
+        "slot": 22,
+        "messagesSent": 3098,
+        "avgLatencyMs": 3
+      },
+      {
+        "slot": 23,
+        "messagesSent": 2800,
+        "avgLatencyMs": 3
+      },
+      {
+        "slot": 24,
+        "messagesSent": 2799,
+        "avgLatencyMs": 3
+      },
+      {
+        "slot": 25,
+        "messagesSent": 2797,
+        "avgLatencyMs": 3
+      },
+      {
+        "slot": 26,
+        "messagesSent": 2796,
+        "avgLatencyMs": 3
+      },
+      {
+        "slot": 27,
+        "messagesSent": 2794,
+        "avgLatencyMs": 3
+      },
+      {
+        "slot": 28,
+        "messagesSent": 2793,
+        "avgLatencyMs": 3
+      }
+    ]
+  }
+}
