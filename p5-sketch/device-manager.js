@@ -99,6 +99,21 @@
       this._engine.updateVoice(voice, mapped, this._config);
     }
 
+    updateConfig(slot, config) {
+      if (!this._brushCanvas) return;
+      const cursor = this._brushCanvas.getCursor(slot);
+      if (!cursor) return;
+      if (config.brush) {
+        cursor.brushType = config.brush;
+      }
+      if (config.color) {
+        if (config.color.h !== undefined) cursor.color.h = config.color.h;
+        if (config.color.s !== undefined) cursor.color.s = config.color.s;
+        if (config.color.b !== undefined) cursor.color.b = config.color.b;
+        cursor.color.a = 1;
+      }
+    }
+
     get isSlotActive() {
       return (slot) => !!this._voices[slot];
     }

@@ -127,6 +127,9 @@ function handleMessage(msg) {
         case 'count':
           deviceCount = msg.count;
           break;
+        case 'config':
+          dm.updateConfig(msg.slot, msg.config);
+          break;
         case 'state':
           if (msg.devices) {
             for (const dev of msg.devices) {

@@ -259,9 +259,13 @@ wss.on('connection', (ws) => {
 
     // Role already determined — handle based on role
     if (connInfo.role === 'sensor') {
-      handleSensorMessage(ws, connInfo, msg);
+      if (msg.type === 'sensor') {
+        handleSensorMessage(ws, connInfo, msg);
+      } else if (msg.type === 'config') {
+        handleConfigMessage(ws, connInfo, msg);
+      }
     } else if (connInfo.role === 'player') {
-      // Players don't send messages (except ping, handled as no-op)
+      // Players don't send messages
     }
   });
 
@@ -398,6 +402,19 @@ function handleSensorMessage(ws, info, msg) {
   broadcastToPlayers(relay.formatSensorMessage(slot, 'accel', msg.accel), ws);
   broadcastToPlayers(relay.formatSensorMessage(slot, 'gyro', msg.gyro), ws);
   broadcastToPlayers(relay.formatSensorMessage(slot, 'orientation', msg.orientation), ws);
+}
+
+// ---------------------------------------------------------------------------
+// Config Message Handling
+// ---------------------------------------------------------------------------
+
+function handleConfigMessage(ws, info, msg) {
+  const config = {};
+  if (msg.brush) config.brush = msg.brush;
+  if (msg.color) config.color = { ...msg.color };
+  if (Object.keys(config).length === 0) return;
+  broadcastToPlayers(relay.formatConfigMessage(info.slot, config));
+  console.log(`[config] Slot ${info.slot}: brush config updated`);
 }
 
 // ---------------------------------------------------------------------------

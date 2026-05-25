@@ -131,6 +131,21 @@ class MessageRelay {
   }
 
   /**
+   * Format a config update message for broadcast to players.
+   * @param {number} slot - Device slot number
+   * @param {object} config - Config object { brush?, color? }
+   * @returns {object}
+   */
+  formatConfigMessage(slot, config) {
+    return {
+      type: 'system',
+      event: 'config',
+      slot,
+      config: { ...config }
+    };
+  }
+
+  /**
    * Format a sensor data message for relay to a player.
    * @param {number} slot - Device slot number
    * @param {string} sensor - Sensor type: 'accel', 'gyro', or 'orientation'
