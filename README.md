@@ -1,250 +1,202 @@
 <div align="center">
-  <h1>Cortex 2.5</h1>
-  <p><strong>Tool-Driven Executive Reasoning — Brain Lobe Architecture for OpenCode</strong></p>
+  <h1>Make A Mess Together</h1>
+  <p><strong>Multi-device phone sensors → collaborative brush canvas + generative sound</strong></p>
   <p>
-    <a href="https://opencode.ai"><img src="https://img.shields.io/badge/OpenCode-Ready-2563EB?style=flat-square" alt="OpenCode Ready"></a>
-    <a href="https://github.com/Stefan-migo/Cortex/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
+    <a href="https://github.com/Stefan-migo/make-a-mess-together"><img src="https://img.shields.io/badge/GitHub-Repo-181717?style=flat-square&logo=github" alt="GitHub Repo"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
+    <a href="https://p5js.org"><img src="https://img.shields.io/badge/p5.js-2.2-ED225D?style=flat-square&logo=p5.js" alt="p5.js"></a>
+    <a href="https://tonejs.github.io"><img src="https://img.shields.io/badge/Tone.js-14.7-FF6F00?style=flat-square" alt="Tone.js"></a>
   </p>
   <p>
-    <a href="#-what-is-cortex">What is Cortex</a> •
-    <a href="#-quick-start">Quick Start</a> •
-    <a href="#-architecture">Architecture</a>
+    <a href="#-what-is-it">What is it</a> •
+    <a href="#-architecture">Architecture</a> •
+    <a href="#-how-it-works">How It Works</a> •
+    <a href="#-setup--run">Setup & Run</a> •
+    <a href="#%EF%B8%8F-brush-types">Brush Types</a>
   </p>
 </div>
 
 ---
 
-Cortex 2.5 is a **tool-driven executive reasoning system** for AI coding agents. It turns [OpenCode](https://opencode.ai) into a self-aware system with four brain lobes: **Frontal** (Spec-Kit planning), **Parietal** (Graphify code understanding), **Hippocampus** (Engram persistent memory), and **Occipital** (Obsidian wiki archive).
+A system where **up to 30 phones** stream their motion sensors (accelerometer, gyroscope, orientation) via WebSocket to a bridge server, which relays data to a p5.js application that generates:
 
-Built on [github/spec-kit](https://github.com/github/spec-kit) (93k★), [Gentleman-Programming/engram](https://github.com/Gentleman-Programming/engram) (3.3k★), and [Graphify](https://github.com/safishamsi/graphify).
+- **Collaborative brush canvas** — each phone is a unique brush painting on a shared canvas (34 brush types)
+- **Generative sound** — each phone drives a Tone.js voice (30 voice types)
+- All running in the browser, no app install needed
 
 ---
 
-## Quick Start
+## Architecture
 
-```bash
-git clone https://github.com/Stefan-migo/Cortex.git
-cd Cortex
-./scripts/install-deps.sh             # Install Engram + Spec-Kit + Graphify
-# ⚠ Post-clone: review "First-Time Setup" below
-opencode                              # Launch agent
-# Switch between @Cortex-Planner (Tab) and @Cortex-Developer (Tab)
+```
+┌─────────────────┐     WebSocket      ┌──────────────────┐     Raw JSON      ┌─────────────────┐
+│ Phone A (Vercel) │ ──────────────────> │  Bridge Server   │ ────────────────> │ p5 Sketch (local)│
+│ Sensor Reader   │  wss://tunnel      │  (laptop Node)   │    wss://tunnel   │ osc-js + Tone.js │
+└─────────────────┘                    │  Slot Allocator  │                   │ Brush Canvas     │
+┌─────────────────┐                    │  Message Relay   │                   │ 34 Brushes       │
+│ Phone B (Vercel) │ ──────────────────> └──────────────────┘                   └─────────────────┘
+│ ... up to 30     │
+└─────────────────┘
+         ▲                                    │
+         │                                    │ ngrok / cloudflared tunnel
+         │                                    ▼
+   Deployed on Vercel                  Public wss:// URL
 ```
 
-### First-Time Setup (Post-Clone)
+---
 
-After cloning, you must fix 3 things before Cortex works correctly:
+## How It Works
 
-#### 1. Merge OpenCode config (⚠ Required)
-The config is split between two files. OpenCode prioritizes `.opencode/opencode.json`,
-but the canonical config lives in root `opencode.json`. After cloning:
-```bash
-# Copy the full config into the correct location
-cp opencode.json .opencode/opencode.json
-# Then reduce root to a delegator (see .opencode/opencode.json for actual config)
-```
-This merges agents, MCP servers, and permissions into the file OpenCode actually reads.
+- **Phone** (deployed on Vercel): Serves static HTML/JS. Reads `DeviceMotion` + `DeviceOrientation` APIs at 30fps. Requires iOS permission gesture. Connects via WebSocket to the bridge.
+- **Bridge** (laptop): Node.js server on port 8080. Assigns slot numbers (0–29). Relays sensor data to connected p5 players. Discovery page with QR code.
+- **p5 Sketch** (deployed on Vercel): Collaborative brush canvas. 34 brush types. 30 Tone.js sound types. Radial layout → brush canvas mode.
 
-#### 2. Install Spec-Kit (`speckit`)
-The Spec-Kit commands (`/speckit.specify`, `/speckit.plan`, etc.) require the `speckit`
-GitHub CLI extension. If `install-deps.sh` didn't do it:
-```bash
-gh extension install github/spec-kit
-```
-Verify: `speckit --version`
+### Two Deployments
 
-#### 3. Add `mode: primary` to agent files
-The agent markdown files in `.opencode/agents/` need `mode: primary` in their frontmatter
-to be recognized as Tab-switchable primary agents. If `install-deps.sh` didn't do it:
-```bash
-# Add to each agent .md file after the description line:
-#   description: "..."
-#   mode: primary
-```
-Without this, agents may not appear in the Tab cycle.
+This project is split into **two independent Vercel deployments** from one GitHub repo:
 
-### What's In the Repo vs What Needs Installing
+| Deployment | URL (example) | What it does |
+|------------|---------------|--------------|
+| **Phone Client** | `make-a-mess-client.vercel.app` | Sensor reader for phones |
+| **p5 Sketch** | `make-a-mess-p5.vercel.app` | Brush canvas + generative sound |
 
-| Already in repo | Needs install (per machine) |
-|-----------------|----------------------------|
-| GSD commands (66 files) | Graphify Python package (`pip install graphifyy`) |
-| GSD agents (33 files) | Graphify OpenCode hooks (`graphify install --platform opencode`) |
-| GSD runtime (245 files) | Planning with Files global install (handled by install-deps.sh) |
-| 8 core agents | Custom tools npm dependencies (handled by install-deps.sh) |
-| 8 skills + Planning with Files skill | Node.js >= 18 (prerequisite) |
-| Graphify skill + plugin | Python >= 3.10 (prerequisite) |
-| 3 custom TypeScript tools | |
-| | Spec-Kit (`gh extension install github/spec-kit`) |
-| | Post-clone config merge (see First-Time Setup) |
-| | Agent frontmatter fix (see First-Time Setup) |
-| DESIGN.md, SYSTEM-MAP.md, USER-GUIDE.md | |
-| Obsidian vault config | |
+---
+
+## Setup & Run
 
 ### Prerequisites
 
-| Tool | Version | Required by |
-|------|---------|-------------|
-| [OpenCode](https://opencode.ai) | >= 2.0 | The agent runtime |
-| [Python](https://python.org) | >= 3.10 | Graphify, Spec-Kit |
-| [Node.js](https://nodejs.org) | >= 18 | Custom tools, execute_script |
+- Node.js >= 18
+- A phone with iOS/Android (or browser simulator)
+- ngrok or cloudflared (for HTTPS tunnel to test with real phones)
 
----
+### Local Development
 
-## Architecture (Brain Lobe Model)
+```bash
+# 1. Clone
+git clone https://github.com/Stefan-migo/make-a-mess-together.git
+cd make-a-mess-together
 
-```
-                         ┌──────────────────────────┐
-                         │  FRONTAL LOBE (Planning)  │
-                         │     Spec-Kit /speckit.*   │
-                         │     .specify/ artifacts   │
-                         │     @Cortex-Planner       │
-                         └──────────┬───────────────┘
-                                    │ hands off spec
-          ┌─────────────────────────┼──────────────────────────┐
-          │                         │                          │
-   ┌──────▼──────────┐    ┌───────▼──────────┐    ┌─────────▼─────────┐
-   │  PARIETAL LOBE   │    │  HIPPOCAMPUS     │    │ OCCIPITAL LOBE    │
-   │  (Spatial)       │    │  (Memory)        │    │ (Archive)         │
-   │                   │    │                   │    │                   │
-   │  Graphify        │    │  Engram MCP      │    │  wiki/ (export)   │
-   │  query_graph     │    │  mem_save/search │    │  .md snapshots    │
-   │  god_nodes       │    │  mem_judge       │    │  from Engram      │
-   │  graph.json      │    │  session lifecycle│   │                   │
-   └──────────────────┘    └───────────────────┘    └──────────────────┘
+# 2. Start the bridge server
+cd server-bridge
+npm install
+node index.js
+# → Bridge at ws://localhost:8080
 
-   @Cortex-Developer executes across all lobes via the mandatory 5-Step Gate
+# 3. Open p5 sketch locally
+cd ../p5-sketch
+npx http-server -p 3000 -c-1
+# → Open http://localhost:3000 in browser, click canvas to start audio
+
+# 4. Open phone client locally
+# Open http://localhost:8080 (served by bridge)
+# Or deploy phone-client to Vercel and open the URL
 ```
 
-### Two Identities
+### Testing with Real Phones (via tunnel)
 
-| Agent | Role | Permissions |
-|-------|------|-------------|
-| `@Cortex-Planner` | Human interaction, spec drafting, research, memory | Read-only + webfetch + task |
-| `@Cortex-Developer` | Technical execution, coding, testing, quality | Full (edit, bash, write, task) |
+```bash
+# 1. Start bridge
+cd server-bridge && node index.js
 
----
+# 2. Tunnel with ngrok
+ngrok http 8080
+# → Get URL like https://xxx.ngrok-free.dev
 
-## Components
+# 3. Open p5 sketch with bridge param
+# https://make-a-mess-p5.vercel.app/?bridge=wss://xxx.ngrok-free.dev
 
-### 1. The Brain — AGENTS.md + opencode.json
-Loaded every session. Tells the agent what tools exist, how to use them, and how to maintain itself.
-
-### 2. Planner — GSD (65 commands)
-Automated feature development pipeline. Commands like `/gsd-new-project`, `/gsd-discuss-phase`, `/gsd-execute-phase` manage the full build lifecycle with atomic commits and parallel wave execution.
-
-### 3. Discipline — Planning with Files
-Behavioral layer: re-read the plan before decisions, save findings every 2 operations, log errors, verify completion before stopping.
-
-### 4. Knowledge Base — wiki/
-Persistent markdown wiki managed by agents. `index.md` for navigation, `log.md` for history. Pages for concepts, entities, sources, sessions, and decisions.
-
-### 5. Code Mapper — Graphify
-Knowledge graph extraction. Run `/graphify .` to build a graph of your codebase showing god nodes, communities, and surprising connections.
-
-### 6. Design System — DESIGN.md
-Token-based UI generation. Defines colors, typography, spacing, and component styles. Agents read this before generating UI.
-
-### 7. Subagents — 8 Core + 33 GSD
-
-| Agent | Purpose |
-|-------|---------|
-| `@researcher` | Deep research on technical topics |
-| `@architect` | System design and trade-off analysis |
-| `@reviewer` | Code review and quality assurance |
-| `@implementer` | Focused implementation from plans |
-| `@debugger` | Bug investigation and root cause analysis |
-| `@sec-auditor` | Security vulnerability scanning |
-| `@ingest-agent` | Wiki ingestion pipeline |
-| `@lint-agent` | Wiki health checks |
-| `@gsd-*` (33) | Specialized agents used by GSD commands |
-
-### 8. Custom Tools — TypeScript
-## Daily Workflow
-
-### Starting a Session
-1. `@Cortex-Planner` runs `mem_session_start` and `mem_context` to restore recent activity
-2. Planner discusses current goal with you
-
-### Building a Feature (Spec-Driven)
-```
-1. /speckit.specify       → Planner writes feature spec (WHAT)
-2. /speckit.clarify        → Resolve ambiguities (optional but recommended)
-3. /speckit.plan           → Planner creates tech plan (HOW)
-4. /speckit.tasks          → Break into executable tasks
-   → Hand spec to @Cortex-Developer
-5. Developer runs 5-Step Gate per task:
-   - GRAPH CHECK → query_graph before editing
-   - ATOMIC COMMIT → one concern per commit
-   - VERIFY → lint + typecheck + tests
-   - SPEC CHECK → /speckit.analyze
-   - MEMORY → mem_save learnings
-6. /speckit.checklist      → Developer validates quality
-```
-
-### Session End
-1. `@Cortex-Developer` calls `mem_save` for all discoveries
-2. `@Cortex-Planner` calls `mem_session_summary` + `mem_session_end`
-3. Run `scripts/engram-export-wiki.sh` to sync to Obsidian vault
-
----
-
-## File Structure
-
-```
-root/
-├── AGENTS.md                       # Rules loaded every session
-├── SYSTEM-MAP.md                   # Component reference guide
-├── USER-GUIDE.md                   # Usage guide
-├── DESIGN.md                       # Design system specification
-├── opencode.json                   # Agent/permission/MCP config
-├── .opencode/
-│   ├── agents/                     # 2 agents: cortex-planner, cortex-developer
-│   ├── skills/                     # 3 skills: graphify, design-system, bootstrap
-│   └── tools/                      # 3 custom tools (wiki-search, wiki-link, execute_script)
-├── .specify/                       # Spec-Kit structured planning
-│   ├── memory/constitution.md      # Project principles
-│   ├── templates/                  # Spec/plan/task templates
-│   └── workflows/                  # Automation workflows
-├── .git/hooks/pre-commit           # Atomicity gate (≤5 files per commit)
-├── scripts/
-│   ├── engram-export-wiki.sh       # Session-end Obsidian export
-│   ├── migrate-wiki-to-engram.sh   # One-time log → Engram seed
-│   └── setup.sh                    # Project initialization
-├── wiki/                           # Engram snapshot (Obsidian-readable)
-│   ├── index.md                    # Content catalog
-│   ├── log.md                      # Export log (archived; memory in Engram)
-│   ├── engram/                     # Auto-exported observations
-│   ├── graph/                      # Graphify outputs
-│   ├── concepts/                   # Technology concept pages
-│   └── ... (other static content)
-├── raw/                            # Immutable source materials
-├── schema/                         # Editorial policies (wiki-schema, editor-policy)
-└── .obsidian/                      # Obsidian vault config
+# 4. On phone, open phone client with IP param
+# https://make-a-mess-client.vercel.app/?ip=xxx.ngrok-free.dev
+# Tap "Request Permission" then watch the canvas!
 ```
 
 ---
 
-## Built On
+## Project Structure
 
-| Project | Role |
-|---------|------|
-| [github/spec-kit](https://github.com/github/spec-kit) | Spec-Driven Development (93k★) |
-| [Gentleman-Programming/engram](https://github.com/Gentleman-Programming/engram) | Persistent memory, 19 MCP tools (3.3k★) |
-| [Graphify](https://github.com/safishamsi/graphify) | Knowledge graph extraction |
-| [OpenCode](https://opencode.ai) | AI coding agent runtime |
+```
+make-a-mess-together/
+├── phone-client/              # Deployed on Vercel
+│   ├── index.html             # Sensor page shell
+│   ├── style.css              # Minimal dark UI
+│   └── app.js                 # Sensor read + WebSocket + live readouts
+├── p5-sketch/                 # Deployed on Vercel
+│   ├── index.html             # Loads p5.js, Tone.js
+│   ├── config.js              # Bridge URL, slot config, layout
+│   ├── sketch.js              # p5 setup/draw, WebSocket init
+│   ├── brush-canvas.js        # Shared collaborative canvas
+│   ├── brush-registry.js      # 34 brush types
+│   ├── sound-engine.js        # 30 Tone.js voice types
+│   ├── audio-bus.js           # Shared reverb/delay busses
+│   ├── sensor-mapper.js       # Normalize, smooth, curveMap
+│   ├── device-manager.js      # Slot lifecycle, sensor routing
+│   └── visuals.js             # (legacy) 30 visual radial types
+├── server-bridge/             # Local laptop server
+│   ├── index.js               # HTTP + WebSocket server
+│   ├── slot-allocator.js      # O(1) 30-slot pool
+│   ├── message-relay.js       # Protocol handler
+│   └── public/                # Discovery page with QR code
+├── tests/                     # 240+ tests (Jest)
+├── PLAN.md                    # Full architecture spec
+├── wiki/                      # Obsidian wiki (auto-generated)
+└── .opencode/                 # CortexPlugin agent framework
+```
+
+---
+
+## Tech Stack
+
+- **Frontend**: p5.js 2.2, Tone.js 14.7, Vanilla JS
+- **Backend**: Node.js, ws library
+- **Deployment**: Vercel (static sites)
+- **Tunnel**: ngrok / cloudflared
+- **Framework**: CortexPlugin (brain-lobe agent system used to build this)
+- **Testing**: Jest (240+ tests)
+
+---
+
+## 🖊️ Brush Types
+
+### Ink & Pens
+Classic, Blade, Dotted, Stamped, Velocity, Dash
+
+### Art & Texture
+Sketchy, Watercolor, Spray, Chalk, Smoke, Furry
+
+### SFX & Glow
+Neon, Plasma, Fire, Frost, Lightning, Glitch
+
+### Nature & Organic
+Leaf, Vine, Feather, Cloud, Splatter, Honey
+
+### Abstract & Weird
+Wormhole, Ripple, Fractal, DNA, Gravity, Kaleido, Spores, PixelSort, Echo, Void
+
+---
+
+## 🔊 Sound Types
+
+5 synth types, 4 arp types, 3 noise types, 5 drum types, 4 FX types, 4 granular types, 5 FX bus modulators. Each phone slot gets a unique voice mapped to its sensor data. See [`PLAN.md`](./PLAN.md) for the full 30-row table.
+
+---
+
+## Built With CortexPlugin
+
+**Make A Mess Together** was built using [CortexPlugin](https://github.com/Stefan-migo/Cortex) — a brain-lobe agentic framework for OpenCode that combines Spec-Kit planning, Graphify code understanding, Engram persistent memory, and a Planner/Developer agent split. The project structure (`.opencode/`, `AGENTS.md`, `PLAN.md`, `wiki/`) reflects this framework.
 
 ---
 
 ## License
 
-MIT License — feel free to use, modify, and distribute.
+MIT License — feel free to use, modify, and make a mess.
 
 ---
 
 <div align="center">
-  <p>Built with OpenCode. Brain lobes, not subagents.</p>
+  <p>Up to 30 phones. One canvas. Infinite mess.</p>
   <p>
-    <a href="https://github.com/Stefan-migo/Cortex/issues">Report Issue</a> •
-    <a href="https://opencode.ai">OpenCode</a>
+    <a href="https://github.com/Stefan-migo/make-a-mess-together/issues">Report Issue</a> •
+    <a href="https://github.com/Stefan-migo/make-a-mess-together">GitHub</a>
   </p>
 </div>
