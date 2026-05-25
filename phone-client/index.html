@@ -144,6 +144,42 @@
       </section>
     </main>
 
+    <!-- Brush & Color Config -->
+    <div id="brush-config" class="hidden">
+      <div class="config-header" id="config-toggle">
+        <span class="config-arrow">&#9660;</span> Brush &amp; Color
+      </div>
+      <div id="config-body">
+        <div class="config-row">
+          <label>Brush</label>
+          <div class="brush-grid" id="brush-grid">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+        <div class="config-row">
+          <label>Color</label>
+          <div class="color-controls">
+            <div class="slider-row">
+              <span class="slider-label">Hue</span>
+              <input type="range" id="color-hue" min="0" max="360" value="0" class="color-slider hue-slider">
+              <span class="slider-value" id="hue-value">0&#176;</span>
+            </div>
+            <div class="slider-row">
+              <span class="slider-label">Sat</span>
+              <input type="range" id="color-sat" min="0" max="100" value="80" class="color-slider sat-slider">
+              <span class="slider-value" id="sat-value">80%</span>
+            </div>
+            <div class="slider-row">
+              <span class="slider-label">Bri</span>
+              <input type="range" id="color-bri" min="0" max="100" value="90" class="color-slider bri-slider">
+              <span class="slider-value" id="bri-value">90%</span>
+            </div>
+            <div class="color-preview" id="color-preview"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Footer: Send rate and connection info -->
     <footer id="footer" class="hidden">
       <div id="rate-info">

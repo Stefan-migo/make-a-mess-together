@@ -47,6 +47,8 @@
     sensorsAvailable: false,
     orientationAvailable: false,
     animationId: null,
+    brushType: 'classic',
+    brushColor: { h: 0, s: 80, b: 90 },
     sensorData: {
       accel: { x: 0, y: 0, z: 0 },
       gyro: { a: 0, b: 0, g: 0 },
@@ -74,6 +76,18 @@
       bridgeIpInput: document.getElementById('bridge-ip-input'),
       bridgeAddress: document.getElementById('bridge-address'),
       sendRate: document.getElementById('send-rate'),
+      brushConfig: document.getElementById('brush-config'),
+      configToggle: document.getElementById('config-toggle'),
+      configBody: document.getElementById('config-body'),
+      configArrow: document.querySelector('.config-arrow'),
+      brushGrid: document.getElementById('brush-grid'),
+      colorHue: document.getElementById('color-hue'),
+      colorSat: document.getElementById('color-sat'),
+      colorBri: document.getElementById('color-bri'),
+      hueValue: document.getElementById('hue-value'),
+      satValue: document.getElementById('sat-value'),
+      briValue: document.getElementById('bri-value'),
+      colorPreview: document.getElementById('color-preview'),
       // Axis elements — built dynamically
       axis: {}
     };
@@ -358,6 +372,7 @@
 
     // Show sensor readouts
     dom.sensorReadouts.classList.remove('hidden');
+    dom.brushConfig.classList.remove('hidden');
     dom.footer.classList.remove('hidden');
     const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const port = window.location.protocol === 'https:' ? '' : `:${CONFIG.wsPort}`;
@@ -645,6 +660,94 @@
   }
 
   // =========================================================================
+  // Brush & Color Config
+  // =========================================================================
+
+  /**
+   * Build the brush selector grid.
+   */
+  function buildBrushGrid() {
+    const brushes = [
+      'classic', 'blade', 'dotted', 'stamped', 'velocity', 'dash',
+      'sketchy', 'watercolor', 'spray', 'chalk', 'smoke', 'furry',
+      'neon', 'plasma', 'fire', 'frost', 'lightning', 'glitch',
+      'leaf', 'vine', 'feather', 'cloud', 'splatter', 'honey',
+      'wormhole', 'ripple', 'fractal', 'dna', 'gravity', 'kaleido',
+      'spores', 'pixelsort', 'echo', 'void'
+    ];
+    const grid = dom.brushGrid;
+    brushes.forEach(function(name) {
+      const pill = document.createElement('button');
+      pill.className = 'brush-pill' + (name === state.brushType ? ' active' : '');
+      pill.textContent = name;
+      pill.dataset.brush = name;
+      pill.addEventListener('click', function() {
+        selectBrush(name, pill);
+      });
+      grid.appendChild(pill);
+    });
+  }
+
+  /**
+   * Handle brush selection.
+   */
+  function selectBrush(name, pillEl) {
+    if (state.brushType === name) return;
+    state.brushType = name;
+    dom.brushGrid.querySelectorAll('.brush-pill').forEach(function(p) {
+      p.classList.remove('active');
+    });
+    if (pillEl) pillEl.classList.add('active');
+    saveAndSendConfig();
+  }
+
+  /**
+   * Set up color slider event handlers.
+   */
+  function setupColorSliders() {
+    dom.colorHue.addEventListener('input', function() {
+      state.brushColor.h = parseInt(this.value);
+      dom.hueValue.textContent = this.value + '\u00B0';
+      updateColorPreview();
+      saveAndSendConfig();
+    });
+    dom.colorSat.addEventListener('input', function() {
+      state.brushColor.s = parseInt(this.value);
+      dom.satValue.textContent = this.value + '%';
+      updateColorPreview();
+      saveAndSendConfig();
+    });
+    dom.colorBri.addEventListener('input', function() {
+      state.brushColor.b = parseInt(this.value);
+      dom.briValue.textContent = this.value + '%';
+      updateColorPreview();
+      saveAndSendConfig();
+    });
+  }
+
+  /**
+   * Update the color preview swatch.
+   */
+  function updateColorPreview() {
+    const c = state.brushColor;
+    dom.colorPreview.style.backgroundColor = 'hsl(' + c.h + ', ' + c.s + '%, ' + c.b + '%)';
+  }
+
+  /**
+   * Save current config to localStorage and send to bridge.
+   */
+  function saveAndSendConfig() {
+    const config = {
+      brush: state.brushType,
+      color: { h: state.brushColor.h, s: state.brushColor.s, b: state.brushColor.b }
+    };
+    try {
+      localStorage.setItem('brushConfig', JSON.stringify(config));
+    } catch (e) { /* ignore */ }
+    sendRaw({ type: 'config', brush: config.brush, color: config.color });
+  }
+
+  // =========================================================================
   // Main Render Loop (separate from send loop)
   // =========================================================================
 
@@ -671,6 +774,35 @@
    */
   function init() {
     cacheDom();
+
+    // Restore brush config from localStorage
+    try {
+      const savedBrush = localStorage.getItem('brushConfig');
+      if (savedBrush) {
+        const parsed = JSON.parse(savedBrush);
+        if (parsed.brush) state.brushType = parsed.brush;
+        if (parsed.color) state.brushColor = { ...state.brushColor, ...parsed.color };
+      }
+    } catch (e) { /* ignore */ }
+
+    // Build brush grid and setup color sliders
+    buildBrushGrid();
+    setupColorSliders();
+    updateColorPreview();
+    dom.colorHue.value = state.brushColor.h;
+    dom.colorSat.value = state.brushColor.s;
+    dom.colorBri.value = state.brushColor.b;
+    dom.hueValue.textContent = state.brushColor.h + '\u00B0';
+    dom.satValue.textContent = state.brushColor.s + '%';
+    dom.briValue.textContent = state.brushColor.b + '%';
+
+    // Toggle config panel
+    let configVisible = true;
+    dom.configToggle.addEventListener('click', function() {
+      configVisible = !configVisible;
+      dom.configBody.style.display = configVisible ? 'block' : 'none';
+      dom.configArrow.classList.toggle('collapsed', !configVisible);
+    });
 
     // Bind permission button
     dom.permissionBtn.addEventListener('click', function() {
