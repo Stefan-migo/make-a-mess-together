@@ -20,8 +20,8 @@
   // Configuration
   // =========================================================================
   const CONFIG = {
-    wsPort: (typeof PHONE_CONFIG !== 'undefined' && PHONE_CONFIG.wsPort) || 8080,
-    sendIntervalMs: (typeof PHONE_CONFIG !== 'undefined' && PHONE_CONFIG.sendIntervalMs) || 33,           // ~30fps
+    wsPort: 8080,
+    sendIntervalMs: 33,           // ~30fps
     reconnectBaseMs: 1000,        // Base backoff delay
     reconnectMaxMs: 30000,        // Max backoff delay
     reconnectJitter: 0.3,         // Jitter factor
@@ -70,6 +70,7 @@
       footer: document.getElementById('footer'),
       permissionBtn: document.getElementById('permission-btn'),
       connectBtn: document.getElementById('connect-btn'),
+      connectError: document.getElementById('connect-error'),
       bridgeIpInput: document.getElementById('bridge-ip-input'),
       bridgeAddress: document.getElementById('bridge-address'),
       sendRate: document.getElementById('send-rate'),
@@ -118,13 +119,7 @@
       return saved;
     }
 
-    // 3. Check PHONE_CONFIG (editable config.js file)
-    if (typeof PHONE_CONFIG !== 'undefined' && PHONE_CONFIG.bridgeIp && isValidIp(PHONE_CONFIG.bridgeIp)) {
-      localStorage.setItem('bridgeIp', PHONE_CONFIG.bridgeIp);
-      return PHONE_CONFIG.bridgeIp;
-    }
-
-    // 4. Show config overlay for user input
+    // 3. Show config overlay for user input
     return null;
   }
 
@@ -134,7 +129,13 @@
   function isValidIp(ip) {
     if (!ip || typeof ip !== 'string') return false;
     if (ip === 'localhost') return true;
-    const parts = ip.trim().split('.');
+    // Accept hostnames (e.g. ngrok domains) — must contain at least one dot
+    // and not be purely numeric (which would be an IPv4)
+    const trimmed = ip.trim();
+    if (trimmed.includes('.') && !/^\d+\.\d+\.\d+\.\d+$/.test(trimmed)) {
+      return trimmed.length >= 3;
+    }
+    const parts = trimmed.split('.');
     if (parts.length !== 4) return false;
     return parts.every(part => {
       const num = parseInt(part, 10);
@@ -164,6 +165,8 @@
       return;
     }
     dom.bridgeIpInput.style.borderColor = '';
+    dom.connectError.classList.add('hidden');
+    dom.connectError.textContent = '';
     localStorage.setItem('bridgeIp', ip);
     dom.configOverlay.classList.add('hidden');
     startConnection(ip);
@@ -204,7 +207,21 @@
       state.ws = null;
     }
 
-    const url = `ws://${state.bridgeIp}:${CONFIG.wsPort}`;
+    function isIpAddress(str) {
+      return /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(str);
+    }
+    const protocol = isIpAddress(state.bridgeIp) ? 'ws:' : 'wss:';
+    const port = isIpAddress(state.bridgeIp) ? `:${CONFIG.wsPort}` : '';
+    const url = `${protocol}//${state.bridgeIp}${port}`;
+
+    if (window.location.protocol === 'https:' && isIpAddress(state.bridgeIp)) {
+      updateConnectionUI('disconnected', 'HTTPS page: use tunnel hostname, not LAN IP');
+      dom.bridgeIpInput.style.borderColor = '#DC2626';
+      dom.connectError.textContent = 'On HTTPS pages, enter the tunnel hostname (e.g., xxx.trycloudflare.com) as Bridge IP, or open http://' + state.bridgeIp + ':8080/phone-client directly.';
+      dom.connectError.classList.remove('hidden');
+      return;
+    }
+
     updateConnectionUI('connecting', 'Connecting...');
 
     try {
@@ -232,14 +249,16 @@
       }
     };
 
-    state.ws.onclose = function() {
+    state.ws.onclose = function(event) {
       state.connected = false;
-      updateConnectionUI('disconnected', 'Disconnected');
+      const reason = event.reason || '';
+      const msg = `Closed (${event.code})` + (reason ? ': ' + reason : '');
+      updateConnectionUI('disconnected', msg);
       scheduleReconnect();
     };
 
-    state.ws.onerror = function() {
-      // onclose will fire after this
+    state.ws.onerror = function(err) {
+      updateConnectionUI('disconnected', 'WS error');
     };
   }
 
@@ -340,7 +359,9 @@
     // Show sensor readouts
     dom.sensorReadouts.classList.remove('hidden');
     dom.footer.classList.remove('hidden');
-    dom.bridgeAddress.textContent = `ws://${msg.bridgeIp}:${CONFIG.wsPort}`;
+    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const port = window.location.protocol === 'https:' ? '' : `:${CONFIG.wsPort}`;
+    dom.bridgeAddress.textContent = `${proto}://${msg.bridgeIp}${port}`;
 
     // Start sensor send loop
     startSensorLoop();
@@ -513,6 +534,19 @@
         updateSendRate();
       }
     }, CONFIG.sendIntervalMs);
+
+    // Diagnostic: check if sensor data is actually being received
+    state._sensorCheck = setInterval(function() {
+      if (!state.connected) {
+        clearInterval(state._sensorCheck);
+        return;
+      }
+      const accel = state.sensorData.accel;
+      if (accel.x === 0 && accel.y === 0 && accel.z === 0) {
+        // Still all zeros — sensors not firing yet
+        updateConnectionUI('disconnected', 'Waiting for sensor data...');
+      }
+    }, 3000);
   }
 
   /**
