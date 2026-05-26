@@ -131,10 +131,8 @@
       this._maxTiltDeg = 90;
       this._sensitivityExponent = 2.0;
 
-      // Pen up/down (Drawing Cone)
-      this.penUpAngle = config.penUpAngle || 50;
-      this.penHysteresis = config.penHysteresis || 5;
-      this._rawDeviationDeg = 0;
+      // Face-down pen control
+      this.faceDownThreshold = config.faceDownThreshold !== undefined ? config.faceDownThreshold : -60;
     }
 
     /**
@@ -210,6 +208,20 @@
         cursor.hasPrev = true;
       }
 
+      // === FACE-DOWN PEN CONTROL ===
+      // Evaluated every frame, independent of dead zone.
+      // Uses absolute orientation.β (raw, not calibrated).
+      const rawBeta = (sensorData.orientation || {}).b !== undefined ? sensorData.orientation.b : 0;
+      const FACE_DOWN_THRESHOLD = this.faceDownThreshold;
+
+      if (rawBeta < FACE_DOWN_THRESHOLD) {
+        cursor.penDown = false;
+      } else if (!cursor.penDown) {
+        cursor.penDown = true;
+        cursor.prevX = cursor.x;
+        cursor.prevY = cursor.y;
+      }
+
       // --- Phase 2: Position Dead Zone ---
       const orient = sensorData.orientation || {};
       const alpha = orient.a !== undefined ? orient.a : 180;
@@ -247,22 +259,6 @@
 
         // Modulate brush parameters from sensor data
         this._modulateFromSensor(cursor, sensorData);
-
-        // --- Pen up/down (Drawing Cone) ---
-        const dev = this._rawDeviationDeg;
-        const upThreshold = this.penUpAngle + this.penHysteresis / 2;
-        const downThreshold = this.penUpAngle - this.penHysteresis / 2;
-
-        if (!cursor.penDown && dev < downThreshold) {
-          cursor.penDown = true;
-          cursor.wasPenDown = true;
-          cursor.prevX = cursor.x;
-          cursor.prevY = cursor.y;
-        }
-
-        if (cursor.penDown && dev > upThreshold) {
-          cursor.penDown = false;
-        }
 
         if (cursor.penDown) {
           cursor._historyX.push(cursor.x);
@@ -464,13 +460,6 @@
       // Apply EMA smoothing with adaptive coefficient
       this._smoothNormX = this._smoothNormX * (1 - smoothCoeff) + normX * smoothCoeff;
       this._smoothNormY = this._smoothNormY * (1 - smoothCoeff) + normY * smoothCoeff;
-
-      // Compute angular deviation from center for pen up/down
-      const deviationDeg = Math.sqrt(
-        this._smoothNormX * this._smoothNormX +
-        this._smoothNormY * this._smoothNormY
-      ) * this._maxTiltDeg;
-      this._rawDeviationDeg = deviationDeg;
 
       // Apply sensitivity curve (fine control near center)
       const curvedX = Math.sign(this._smoothNormX) * Math.pow(Math.abs(this._smoothNormX), this._sensitivityExponent);

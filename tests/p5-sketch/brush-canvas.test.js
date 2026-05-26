@@ -79,8 +79,7 @@ const mockConfig = {
   frameRate: 30,
   canvasFadeRate: 0.005,
   canvasFadeInterval: 60,
-  penUpAngle: 50,
-  penHysteresis: 5,
+  faceDownThreshold: -60,
   slots: []
 };
 
@@ -712,24 +711,21 @@ describe('BrushCanvas — Phase 2: Smooth Traces & Dead Zones', () => {
   });
 });
 
-describe('BrushCanvas — Phase 9: Pen Up/Down (Drawing Cone)', () => {
+describe('BrushCanvas — Phase 9: Face-Down Pen Control', () => {
 
   function createCanvasWithPenConfig(opts) {
-    const config = { ...mockConfig, penUpAngle: 10, penHysteresis: 2, ...opts };
+    const config = { ...mockConfig, faceDownThreshold: -60, ...opts };
     const mockPg = createMockGraphics();
     const canvas = new BrushCanvas(config, mockPg);
-    canvas._smoothFactor = 1.0;
     canvas.createCursor(0, 'classic');
     return { canvas, cursor: canvas.getCursor(0), mockPg };
   }
 
-  test('T060: default penUpAngle is 50 when config not provided', () => {
+  test('T060: default faceDownThreshold is -60 when config not provided', () => {
     const config = { ...mockConfig };
-    delete config.penUpAngle;
-    delete config.penHysteresis;
+    delete config.faceDownThreshold;
     const canvas = new BrushCanvas(config, createMockGraphics());
-    expect(canvas.penUpAngle).toBe(50);
-    expect(canvas.penHysteresis).toBe(5);
+    expect(canvas.faceDownThreshold).toBe(-60);
   });
 
   test('T061: penDown is true initially after cursor creation', () => {
@@ -737,21 +733,30 @@ describe('BrushCanvas — Phase 9: Pen Up/Down (Drawing Cone)', () => {
     expect(cursor.penDown).toBe(true);
   });
 
-  test('T062: pen goes up when deviation > penUpAngle + hysteresis/2', () => {
+  test('T062: pen stays down when β = 0° (normal phone position)', () => {
     const { canvas, cursor } = createCanvasWithPenConfig();
-    // penUpAngle=10, hysteresis=2 → upThreshold = 11
 
-    // Calibrate at center
     canvas.updateCursor(0, {
       orientation: { a: 180, b: 0, g: 0 },
       accel: { x: 0, y: 0, z: 0 },
       gyro: { a: 0, b: 0, g: 0 }
     });
-    expect(cursor.penDown).toBe(true);
 
-    // Large deviation: alpha=140 (delta=-40°, deviation ≈ 40 > 11)
+    expect(cursor.penDown).toBe(true);
+  });
+
+  test('T063: pen goes up when β = -80° (face down)', () => {
+    const { canvas, cursor } = createCanvasWithPenConfig();
+
     canvas.updateCursor(0, {
-      orientation: { a: 140, b: 0, g: 0 },
+      orientation: { a: 180, b: 0, g: 0 },
+      accel: { x: 0, y: 0, z: 0 },
+      gyro: { a: 0, b: 0, g: 0 }
+    });
+
+    // β = -80° → face down → pen up
+    canvas.updateCursor(0, {
+      orientation: { a: 180, b: -80, g: 0 },
       accel: { x: 0, y: 0, z: 0 },
       gyro: { a: 0, b: 0, g: 0 }
     });
@@ -759,7 +764,41 @@ describe('BrushCanvas — Phase 9: Pen Up/Down (Drawing Cone)', () => {
     expect(cursor.penDown).toBe(false);
   });
 
-  test('T063: pen goes down when deviation < penUpAngle - hysteresis/2', () => {
+  test('T064: pen goes back down when β returns to 0° from face down', () => {
+    const { canvas, cursor } = createCanvasWithPenConfig();
+
+    canvas.updateCursor(0, {
+      orientation: { a: 180, b: 0, g: 0 },
+      accel: { x: 0, y: 0, z: 0 },
+      gyro: { a: 0, b: 0, g: 0 }
+    });
+
+    // Face down
+    canvas.updateCursor(0, {
+      orientation: { a: 180, b: -80, g: 0 },
+      accel: { x: 0, y: 0, z: 0 },
+      gyro: { a: 0, b: 0, g: 0 }
+    });
+    expect(cursor.penDown).toBe(false);
+
+    // β = -80 (still face down)
+    canvas.updateCursor(0, {
+      orientation: { a: 180, b: -70, g: 0 },
+      accel: { x: 0, y: 0, z: 0 },
+      gyro: { a: 0, b: 0, g: 0 }
+    });
+    expect(cursor.penDown).toBe(false);
+
+    // β = 0 (normal) → pen goes back down
+    canvas.updateCursor(0, {
+      orientation: { a: 180, b: 0, g: 0 },
+      accel: { x: 0, y: 0, z: 0 },
+      gyro: { a: 0, b: 0, g: 0 }
+    });
+    expect(cursor.penDown).toBe(true);
+  });
+
+  test('T065: prevX/prevY reset when pen transitions from up to down (no jump)', () => {
     const { canvas, cursor } = createCanvasWithPenConfig();
 
     canvas.updateCursor(0, {
@@ -768,95 +807,28 @@ describe('BrushCanvas — Phase 9: Pen Up/Down (Drawing Cone)', () => {
       gyro: { a: 0, b: 0, g: 0 }
     });
 
-    // Go pen up (single frame is enough — dev ≈ 16 > 11)
+    // Face down → pen up
     canvas.updateCursor(0, {
-      orientation: { a: 140, b: 0, g: 0 },
+      orientation: { a: 180, b: -80, g: 0 },
       accel: { x: 0, y: 0, z: 0 },
       gyro: { a: 0, b: 0, g: 0 }
     });
     expect(cursor.penDown).toBe(false);
 
-    // Send small deviation frames until smoothing converges below downThreshold
-    // (The jitter-detection override clamps smoothCoeff to 0.4, so convergence
-    //  takes a few frames — but well below downThreshold=9)
-    for (let i = 0; i < 10; i++) {
-      canvas.updateCursor(0, {
-        orientation: { a: 176, b: 0, g: 0 },
-        accel: { x: 0, y: 0, z: 0 },
-        gyro: { a: 0, b: 0, g: 0 }
-      });
-    }
+    // Get current position
+    const expectedX = cursor.x;
+    const expectedY = cursor.y;
 
-    expect(cursor.penDown).toBe(true);
-  });
-
-  test('T064: prevX/prevY do not change when pen is up', () => {
-    const { canvas, cursor } = createCanvasWithPenConfig();
-
+    // β = 0 (normal) → pen goes back down
     canvas.updateCursor(0, {
       orientation: { a: 180, b: 0, g: 0 },
       accel: { x: 0, y: 0, z: 0 },
       gyro: { a: 0, b: 0, g: 0 }
     });
 
-    // Draw a stroke
-    canvas.updateCursor(0, {
-      orientation: { a: 175, b: 5, g: 0 },
-      accel: { x: 0, y: 0, z: 0 },
-      gyro: { a: 0, b: 0, g: 0 }
-    });
+    // prevX/prevY should match current position (no jump)
     expect(cursor.penDown).toBe(true);
-
-    const prevXBefore = cursor.prevX;
-    const prevYBefore = cursor.prevY;
-
-    // Go pen up
-    canvas.updateCursor(0, {
-      orientation: { a: 140, b: 0, g: 0 },
-      accel: { x: 0, y: 0, z: 0 },
-      gyro: { a: 0, b: 0, g: 0 }
-    });
-    expect(cursor.penDown).toBe(false);
-
-    // prevX/prevY should still be from the last drawn stroke
-    expect(cursor.prevX).toBe(prevXBefore);
-    expect(cursor.prevY).toBe(prevYBefore);
-  });
-
-  test('T065: prevX/prevY reset to current position when pen goes down (no jump)', () => {
-    const { canvas, cursor } = createCanvasWithPenConfig();
-
-    canvas.updateCursor(0, {
-      orientation: { a: 180, b: 0, g: 0 },
-      accel: { x: 0, y: 0, z: 0 },
-      gyro: { a: 0, b: 0, g: 0 }
-    });
-
-    // Go pen up first
-    canvas.updateCursor(0, {
-      orientation: { a: 140, b: 0, g: 0 },
-      accel: { x: 0, y: 0, z: 0 },
-      gyro: { a: 0, b: 0, g: 0 }
-    });
-    expect(cursor.penDown).toBe(false);
-
-    // Send frames until pen goes down; verify prevX= x on transition frame
-    let checkedDown = false;
-    for (let i = 0; i < 10; i++) {
-      const wasDown = cursor.penDown;
-      canvas.updateCursor(0, {
-        orientation: { a: 176, b: 0, g: 0 },
-        accel: { x: 0, y: 0, z: 0 },
-        gyro: { a: 0, b: 0, g: 0 }
-      });
-      if (!wasDown && cursor.penDown && !checkedDown) {
-        checkedDown = true;
-        expect(cursor.prevX).toBe(cursor.x);
-        expect(cursor.prevY).toBe(cursor.y);
-      }
-    }
-
-    expect(cursor.penDown).toBe(true);
-    expect(checkedDown).toBe(true);
+    expect(cursor.prevX).toBe(cursor.x);
+    expect(cursor.prevY).toBe(cursor.y);
   });
 });
