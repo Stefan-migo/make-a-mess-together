@@ -167,6 +167,31 @@ describe('DeviceManager', () => {
     }).not.toThrow();
   });
 
+  test('accumulates partial sensor updates for correct multi-sensor mapping', () => {
+    const sm = {
+      pitch: { source: 'accel', axis: 'y', range: [50, 2000], curve: 'linear' },
+      filter: { source: 'gyro', axis: 'g', range: [200, 8000], curve: 'exponential' }
+    };
+    testConfig.slots[0].sensorMap = sm;
+
+    dm.assign(0);
+    const voice = dm._voices[0];
+    expect(voice).toBeDefined();
+    expect(voice.lastSensorData).toBeNull();
+
+    // Bridge sends only accel data (gyro + orientation follow in separate msgs)
+    dm.updateSensor(0, 'accel', { x: 5, y: 2, z: -3 });
+
+    expect(voice.lastSensorData).toBeDefined();
+    // Accel-mapped param should resolve from cache (BUG: gets default 50)
+    expect(voice.lastSensorData.pitch).toBeGreaterThan(50);
+    expect(voice.lastSensorData.pitch).toBeLessThanOrEqual(2000);
+    // Gyro-mapped param should at least have a value (no crash)
+    expect(voice.lastSensorData.filter).toBeDefined();
+
+    delete testConfig.slots[0].sensorMap;
+  });
+
   test('activeCount reflects correct number of active slots', () => {
     expect(dm.activeCount).toBe(0);
     dm.assign(0);

@@ -84,7 +84,7 @@
           normMax: normRange.max
         };
 
-        const value = SensorMapper.getSensorValue(data, paramConfig.source, paramConfig.axis, fullConfig);
+        const value = SensorMapper.getSensorValue(this._sensorCache[slot], paramConfig.source, paramConfig.axis, fullConfig);
 
         if (voice.lastSensorData && voice.lastSensorData[paramName] !== undefined) {
           const coeff = this._config.smoothCoefficient || 0.3;
