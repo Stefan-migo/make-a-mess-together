@@ -711,124 +711,114 @@ describe('BrushCanvas — Phase 2: Smooth Traces & Dead Zones', () => {
   });
 });
 
-describe('BrushCanvas — Phase 9: Face-Down Pen Control', () => {
+describe('BrushCanvas — Phase 9: Pen Up/Down Toggle', () => {
 
-  function createCanvasWithPenConfig(opts) {
-    const config = { ...mockConfig, faceDownThreshold: -60, ...opts };
+  function createCanvas() {
+    const config = { ...mockConfig };
     const mockPg = createMockGraphics();
     const canvas = new BrushCanvas(config, mockPg);
     canvas.createCursor(0, 'classic');
-    return { canvas, cursor: canvas.getCursor(0), mockPg };
+    const cursor = canvas.getCursor(0);
+    // First update to calibrate and set hasPrev
+    canvas.updateCursor(0, {
+      orientation: { a: 180, b: 0, g: 0 },
+      accel: { x: 0, y: 0, z: 0 },
+      gyro: { a: 0, b: 0, g: 0 }
+    });
+    return { canvas, cursor, mockPg };
   }
 
-  test('T060: default faceDownThreshold is -60 when config not provided', () => {
+  test('T060: penDown is true by default on cursor creation', () => {
     const config = { ...mockConfig };
-    delete config.faceDownThreshold;
     const canvas = new BrushCanvas(config, createMockGraphics());
-    expect(canvas.faceDownThreshold).toBe(-60);
-  });
-
-  test('T061: penDown is true initially after cursor creation', () => {
-    const { cursor } = createCanvasWithPenConfig();
+    const cursor = canvas.createCursor(0, 'classic');
     expect(cursor.penDown).toBe(true);
   });
 
-  test('T062: pen stays down when β = 0° (normal phone position)', () => {
-    const { canvas, cursor } = createCanvasWithPenConfig();
+  test('T061: penDown=true draws brush stroke on position update', () => {
+    const { canvas, cursor, mockPg } = createCanvas();
+    mockPg._calls = [];
 
+    // Move outside dead zone
     canvas.updateCursor(0, {
-      orientation: { a: 180, b: 0, g: 0 },
+      orientation: { a: 200, b: 20, g: 0 },
       accel: { x: 0, y: 0, z: 0 },
       gyro: { a: 0, b: 0, g: 0 }
     });
 
+    // Should have drawn (ellipse calls)
+    expect(mockPg._calls.includes('ellipse')).toBe(true);
+  });
+
+  test('T062: penDown=false via config stops drawing', () => {
+    const { canvas, cursor, mockPg } = createCanvas();
+
+    // Set pen up externally (simulating config from phone)
+    cursor.penDown = false;
+    mockPg._calls = [];
+
+    // Move outside dead zone
+    canvas.updateCursor(0, {
+      orientation: { a: 200, b: 20, g: 0 },
+      accel: { x: 0, y: 0, z: 0 },
+      gyro: { a: 0, b: 0, g: 0 }
+    });
+
+    // Should NOT have drawn
+    expect(mockPg._calls.includes('ellipse')).toBe(false);
+    // Cursor position still updates
+    expect(typeof cursor.x).toBe('number');
+    expect(typeof cursor.y).toBe('number');
+  });
+
+  test('T063: penDown=true after false resumes drawing without jump', () => {
+    const { canvas, cursor, mockPg } = createCanvas();
+
+    // Pen up first
+    cursor.penDown = false;
+    canvas.updateCursor(0, {
+      orientation: { a: 200, b: 20, g: 0 },
+      accel: { x: 0, y: 0, z: 0 },
+      gyro: { a: 0, b: 0, g: 0 }
+    });
+    const posX = cursor.x;
+    const posY = cursor.y;
+
+    // Pen down
+    cursor.penDown = true;
+    mockPg._calls = [];
+    canvas.updateCursor(0, {
+      orientation: { a: 205, b: 25, g: 0 },
+      accel: { x: 0, y: 0, z: 0 },
+      gyro: { a: 0, b: 0, g: 0 }
+    });
+
+    // Should draw again
+    expect(mockPg._calls.includes('ellipse')).toBe(true);
+  });
+
+  test('T064: device-manager updateConfig sets cursor.penDown', () => {
+    const { DeviceManager } = require('../../p5-sketch/device-manager.js');
+    const mockEngine = { createVoice: () => ({}), disposeVoice: () => {} };
+    const mockPg = createMockGraphics();
+    const brushCanvas = new BrushCanvas(mockConfig, mockPg);
+    brushCanvas.createCursor(0, 'classic');
+
+    const config = { slots: [{ soundType: 'synthBasic', sensorMap: {} }] };
+    const dm = new DeviceManager(mockEngine, config, brushCanvas);
+    dm.assign(0);
+
+    dm.updateConfig(0, { penDown: false });
+    const cursor = brushCanvas.getCursor(0);
+    expect(cursor.penDown).toBe(false);
+
+    dm.updateConfig(0, { penDown: true });
     expect(cursor.penDown).toBe(true);
   });
 
-  test('T063: pen goes up when β = -80° (face down)', () => {
-    const { canvas, cursor } = createCanvasWithPenConfig();
-
-    canvas.updateCursor(0, {
-      orientation: { a: 180, b: 0, g: 0 },
-      accel: { x: 0, y: 0, z: 0 },
-      gyro: { a: 0, b: 0, g: 0 }
-    });
-
-    // β = -80° → face down → pen up
-    canvas.updateCursor(0, {
-      orientation: { a: 180, b: -80, g: 0 },
-      accel: { x: 0, y: 0, z: 0 },
-      gyro: { a: 0, b: 0, g: 0 }
-    });
-
-    expect(cursor.penDown).toBe(false);
-  });
-
-  test('T064: pen goes back down when β returns to 0° from face down', () => {
-    const { canvas, cursor } = createCanvasWithPenConfig();
-
-    canvas.updateCursor(0, {
-      orientation: { a: 180, b: 0, g: 0 },
-      accel: { x: 0, y: 0, z: 0 },
-      gyro: { a: 0, b: 0, g: 0 }
-    });
-
-    // Face down
-    canvas.updateCursor(0, {
-      orientation: { a: 180, b: -80, g: 0 },
-      accel: { x: 0, y: 0, z: 0 },
-      gyro: { a: 0, b: 0, g: 0 }
-    });
-    expect(cursor.penDown).toBe(false);
-
-    // β = -80 (still face down)
-    canvas.updateCursor(0, {
-      orientation: { a: 180, b: -70, g: 0 },
-      accel: { x: 0, y: 0, z: 0 },
-      gyro: { a: 0, b: 0, g: 0 }
-    });
-    expect(cursor.penDown).toBe(false);
-
-    // β = 0 (normal) → pen goes back down
-    canvas.updateCursor(0, {
-      orientation: { a: 180, b: 0, g: 0 },
-      accel: { x: 0, y: 0, z: 0 },
-      gyro: { a: 0, b: 0, g: 0 }
-    });
-    expect(cursor.penDown).toBe(true);
-  });
-
-  test('T065: prevX/prevY reset when pen transitions from up to down (no jump)', () => {
-    const { canvas, cursor } = createCanvasWithPenConfig();
-
-    canvas.updateCursor(0, {
-      orientation: { a: 180, b: 0, g: 0 },
-      accel: { x: 0, y: 0, z: 0 },
-      gyro: { a: 0, b: 0, g: 0 }
-    });
-
-    // Face down → pen up
-    canvas.updateCursor(0, {
-      orientation: { a: 180, b: -80, g: 0 },
-      accel: { x: 0, y: 0, z: 0 },
-      gyro: { a: 0, b: 0, g: 0 }
-    });
-    expect(cursor.penDown).toBe(false);
-
-    // Get current position
-    const expectedX = cursor.x;
-    const expectedY = cursor.y;
-
-    // β = 0 (normal) → pen goes back down
-    canvas.updateCursor(0, {
-      orientation: { a: 180, b: 0, g: 0 },
-      accel: { x: 0, y: 0, z: 0 },
-      gyro: { a: 0, b: 0, g: 0 }
-    });
-
-    // prevX/prevY should match current position (no jump)
-    expect(cursor.penDown).toBe(true);
-    expect(cursor.prevX).toBe(cursor.x);
-    expect(cursor.prevY).toBe(cursor.y);
+  test('T065: faceDownThreshold no longer exists on canvas', () => {
+    const config = { ...mockConfig };
+    const canvas = new BrushCanvas(config, createMockGraphics());
+    expect(canvas.faceDownThreshold).toBeUndefined();
   });
 });

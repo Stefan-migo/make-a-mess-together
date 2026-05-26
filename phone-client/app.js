@@ -50,6 +50,7 @@
     brushType: 'classic',
     brushColor: { h: 0, s: 80, b: 90 },
     pressureCurve: 'natural',
+    penDown: true,
     sensorData: {
       accel: { x: 0, y: 0, z: 0 },
       gyro: { a: 0, b: 0, g: 0 },
@@ -90,6 +91,9 @@
       briValue: document.getElementById('bri-value'),
       colorPreview: document.getElementById('color-preview'),
       pressurePills: document.getElementById('pressure-pills'),
+      penToggle: document.getElementById('pen-toggle-btn'),
+      penIcon: document.querySelector('#pen-toggle-btn .pen-icon'),
+      penLabel: document.querySelector('#pen-toggle-btn .pen-label'),
       // Axis elements — built dynamically
       axis: {}
     };
@@ -753,6 +757,32 @@
   }
 
   /**
+   * Set up pen toggle button handler.
+   */
+  function setupPenToggle() {
+    if (!dom.penToggle) return;
+    dom.penToggle.addEventListener('click', () => {
+      state.penDown = !state.penDown;
+      updatePenUI();
+      saveAndSendConfig();
+      localStorage.setItem('penDown', state.penDown);
+    });
+  }
+
+  function updatePenUI() {
+    if (!dom.penToggle || !dom.penIcon || !dom.penLabel) return;
+    if (state.penDown) {
+      dom.penToggle.classList.remove('pen-up');
+      dom.penIcon.textContent = '\u270F\uFE0F';
+      dom.penLabel.textContent = 'PEN DOWN';
+    } else {
+      dom.penToggle.classList.add('pen-up');
+      dom.penIcon.textContent = '\uD83D\uDEAB';
+      dom.penLabel.textContent = 'PEN UP';
+    }
+  }
+
+  /**
    * Save current config to localStorage and send to bridge.
    */
   function saveAndSendConfig() {
@@ -764,7 +794,7 @@
     try {
       localStorage.setItem('brushConfig', JSON.stringify(config));
     } catch (e) { /* ignore */ }
-    sendRaw({ type: 'config', brush: config.brush, color: config.color, pressureCurve: config.pressureCurve });
+    sendRaw({ type: 'config', brush: config.brush, color: config.color, pressureCurve: config.pressureCurve, penDown: state.penDown });
   }
 
   // =========================================================================
@@ -814,10 +844,18 @@
       }
     } catch (e) { /* ignore */ }
 
+    // Restore penDown from localStorage
+    const savedPenDown = localStorage.getItem('penDown');
+    if (savedPenDown !== null) {
+      state.penDown = savedPenDown === 'true';
+    }
+
     // Build brush grid and setup color sliders
     buildBrushGrid();
     setupColorSliders();
     setupPressurePills();
+    setupPenToggle();
+    updatePenUI();
 
     // Activate the saved pressure pill
     dom.pressurePills.querySelectorAll('.pill').forEach(function(p) {

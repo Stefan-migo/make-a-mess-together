@@ -112,6 +112,9 @@
         if (config.color.b !== undefined) cursor.color.b = config.color.b;
         cursor.color.a = 1;
       }
+      if (config.penDown !== undefined) {
+        cursor.penDown = config.penDown;
+      }
     }
 
     get isSlotActive() {

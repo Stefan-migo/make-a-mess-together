@@ -131,8 +131,7 @@
       this._maxTiltDeg = 90;
       this._sensitivityExponent = 2.0;
 
-      // Face-down pen control
-      this.faceDownThreshold = config.faceDownThreshold !== undefined ? config.faceDownThreshold : -60;
+
     }
 
     /**
@@ -206,20 +205,6 @@
         cursor.prevX = pos.x;
         cursor.prevY = pos.y;
         cursor.hasPrev = true;
-      }
-
-      // === FACE-DOWN PEN CONTROL ===
-      // Evaluated every frame, independent of dead zone.
-      // Uses absolute orientation.β (raw, not calibrated).
-      const rawBeta = (sensorData.orientation || {}).b !== undefined ? sensorData.orientation.b : 0;
-      const FACE_DOWN_THRESHOLD = this.faceDownThreshold;
-
-      if (rawBeta < FACE_DOWN_THRESHOLD) {
-        cursor.penDown = false;
-      } else if (!cursor.penDown) {
-        cursor.penDown = true;
-        cursor.prevX = cursor.x;
-        cursor.prevY = cursor.y;
       }
 
       // --- Phase 2: Position Dead Zone ---

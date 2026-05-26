@@ -72,9 +72,6 @@ const CONFIG = {
   pressureSmoothing: 0.2,
   deadZoneGamma: 5,
 
-  // Face-down pen control
-  faceDownThreshold: -60, // degrees — phone tilt below this = pen up
-
   // Phase 2: Smooth Traces & Dead Zones
   deadZonePosition: 3,
   interpolateSteps: 5,
