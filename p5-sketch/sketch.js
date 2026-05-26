@@ -73,6 +73,9 @@ function draw() {
 
 function mousePressed() {
   if (!started) {
+    if (Tone.context && Tone.context.rawContext) {
+      Tone.context.rawContext.latencyHint = 'playback';
+    }
     Tone.start();
     started = true;
     const overlay = document.getElementById('start-overlay');
