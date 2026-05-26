@@ -60,6 +60,10 @@ const CONFIG = {
   // Granular max grains per voice
   maxGrains: 8,
 
+  // Reverb scaling for CPU efficiency at high device counts
+  reverbScaling: true,
+  highDeviceThreshold: 15,
+
   // EMA smoothing coefficient (default)
   smoothCoefficient: 0.3,
 

@@ -46,6 +46,18 @@
       this._masterGain.gain.value = Math.max(0, Math.min(1, value));
     }
 
+    setReverbEfficiencyMode(efficient) {
+      if (efficient) {
+        this._reverb.wet.value = 0.15;
+        this._reverbSend.gain.value = 0.1;
+        this._reverb.decay = 1.0;
+      } else {
+        this._reverb.wet.value = 0.3;
+        this._reverbSend.gain.value = 0.3;
+        this._reverb.decay = 2.0;
+      }
+    }
+
     dispose() {
       this._reverb.dispose();
       this._delay.dispose();

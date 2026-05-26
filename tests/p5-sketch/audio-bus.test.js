@@ -71,4 +71,23 @@ describe('AudioBus', () => {
     expect(typeof bus.setMasterVolume).toBe('function');
     bus.dispose();
   });
+
+  test('setReverbEfficiencyMode reduces wet/decay/send when highDeviceCount > 15', () => {
+    const bus = new AudioBus();
+    bus.setReverbEfficiencyMode(true);
+    expect(bus._reverb.wet.value).toBe(0.15);
+    expect(bus._reverbSend.gain.value).toBe(0.1);
+    expect(bus._reverb.decay).toBe(1.0);
+    bus.dispose();
+  });
+
+  test('setReverbEfficiencyMode restores normal values when highDeviceCount <= 15', () => {
+    const bus = new AudioBus();
+    bus.setReverbEfficiencyMode(true);
+    bus.setReverbEfficiencyMode(false);
+    expect(bus._reverb.wet.value).toBe(0.3);
+    expect(bus._reverbSend.gain.value).toBe(0.3);
+    expect(bus._reverb.decay).toBe(2.0);
+    bus.dispose();
+  });
 });

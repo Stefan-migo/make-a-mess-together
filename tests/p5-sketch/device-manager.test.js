@@ -365,6 +365,73 @@ describe('DeviceManager — Phase 5: Stripped Dependencies', () => {
   });
 });
 
+describe('DeviceManager — Reverb Scaling Efficiency', () => {
+  let dm;
+  let bus;
+
+  beforeEach(() => {
+    bus = new AudioBus();
+    const engine = new SoundEngine(bus);
+    const cfg = JSON.parse(JSON.stringify(testConfig));
+    cfg.reverbScaling = true;
+    cfg.highDeviceThreshold = 15;
+    dm = new DeviceManager(engine, cfg);
+  });
+
+  afterEach(() => {
+    dm.disposeAll();
+  });
+
+  test('processAllVoices calls setReverbEfficiencyMode(true) when activeCount > 15', () => {
+    const spy = jest.spyOn(bus, 'setReverbEfficiencyMode');
+
+    for (let i = 0; i < 16; i++) {
+      dm.assign(i);
+    }
+
+    dm.processAllVoices();
+
+    expect(spy).toHaveBeenCalledWith(true);
+    spy.mockRestore();
+  });
+
+  test('processAllVoices calls setReverbEfficiencyMode(false) when activeCount drops to <= 15', () => {
+    for (let i = 0; i < 16; i++) {
+      dm.assign(i);
+    }
+
+    dm.processAllVoices();
+
+    dm.disconnect(15);
+    dm.processAllVoices();
+
+    const spy = jest.spyOn(bus, 'setReverbEfficiencyMode');
+    dm.processAllVoices();
+    expect(spy).not.toHaveBeenCalledWith(true);
+    spy.mockRestore();
+  });
+
+  test('does not call setReverbEfficiencyMode when reverbScaling is disabled', () => {
+    bus.dispose();
+    bus = new AudioBus();
+    const engine = new SoundEngine(bus);
+    const cfg = JSON.parse(JSON.stringify(testConfig));
+    cfg.reverbScaling = false;
+    dm = new DeviceManager(engine, cfg);
+
+    const spy = jest.spyOn(bus, 'setReverbEfficiencyMode');
+
+    for (let i = 0; i < 16; i++) {
+      dm.assign(i);
+    }
+
+    dm.processAllVoices();
+
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+});
+
 describe('DeviceManager — Frame-Budget Governor', () => {
   let dm;
   let originalPerformanceNow;

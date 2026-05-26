@@ -12,6 +12,7 @@
         skippedSlots: new Set(),
         frameDeadline: 0,
       };
+      this._lastReverbMode = null;
     }
 
     assign(slot) {
@@ -76,6 +77,18 @@
 
     processAllVoices() {
       this.beginFrame();
+
+      if (this._config.reverbScaling && this._engine._audioBus) {
+        const activeCount = this.activeCount;
+        if (activeCount > 15 && this._lastReverbMode !== 'efficient') {
+          this._engine._audioBus.setReverbEfficiencyMode(true);
+          this._lastReverbMode = 'efficient';
+        } else if (activeCount <= 15 && this._lastReverbMode !== 'normal') {
+          this._engine._audioBus.setReverbEfficiencyMode(false);
+          this._lastReverbMode = 'normal';
+        }
+      }
+
       for (const slot of this.activeSlots) {
         if (performance.now() > this._frameBudget.frameDeadline) {
           this._frameBudget.skippedSlots.add(slot);
