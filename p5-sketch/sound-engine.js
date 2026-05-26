@@ -311,11 +311,6 @@
 
     _makeArpVoice(slot, config) {
       const notes = ['C3', 'E3', 'G3', 'C4'];
-      const pattern = new Tone.Pattern((time, note) => {
-        voice.nodes.osc.frequency.value = Tone.Frequency(note).toFrequency();
-        voice.nodes.env.triggerAttackRelease('16n', time);
-      }, notes, 'up');
-
       const osc = new Tone.Oscillator({ type: 'square', frequency: 440 });
       const filter = new Tone.Filter({ type: 'lowpass', frequency: 5000, rolloff: -12 });
       const env = new Tone.AmplitudeEnvelope({ attack: 0.01, decay: 0.1, sustain: 0, release: 0.1 });
@@ -331,11 +326,14 @@
       const voice = {
         type: 'arpRate',
         slot,
-        nodes: { osc, filter, env, gain, pattern },
+        nodes: { osc, filter, env, gain },
         sendGains: { reverb: sends.reverb, delay: sends.delay },
         lastSensorData: null,
         isTriggered: false,
         _interval: null,
+        _noteIndex: 0,
+        _arpNotes: notes,
+        _arpDirection: 'up',
         dispose: () => {
           if (voice._interval) {
             clearInterval(voice._interval);
@@ -348,7 +346,10 @@
       };
 
       voice._interval = setInterval(() => {
-        pattern.next(Tone.now());
+        const note = voice._arpNotes[voice._noteIndex % voice._arpNotes.length];
+        voice._noteIndex++;
+        voice.nodes.osc.frequency.value = Tone.Frequency(note).toFrequency();
+        voice.nodes.env.triggerAttackRelease('16n', Tone.now());
       }, 200);
 
       return voice;
@@ -367,7 +368,10 @@
           clearInterval(voice._interval);
         }
         voice._interval = setInterval(() => {
-          voice.nodes.pattern.next(Tone.now());
+          const note = voice._arpNotes[voice._noteIndex % voice._arpNotes.length];
+          voice._noteIndex++;
+          voice.nodes.osc.frequency.value = Tone.Frequency(note).toFrequency();
+          voice.nodes.env.triggerAttackRelease('16n', Tone.now());
         }, ms);
       }
       if (sd.spread !== undefined) {
@@ -377,7 +381,7 @@
           const parts = n.match(/([A-G]#?)(\d)/);
           return parts ? parts[1] + (parseInt(parts[2]) + oct - 1) : n;
         });
-        voice.nodes.pattern.values = shifted;
+        voice._arpNotes = shifted;
       }
     }
 
@@ -391,12 +395,12 @@
       const patterns = ['up', 'down', 'upDown', 'random'];
       if (sd.pattern !== undefined) {
         const idx = Math.max(0, Math.min(3, Math.round(sd.pattern)));
-        voice.nodes.pattern.pattern = patterns[idx];
+        voice._arpDirection = patterns[idx];
       }
       if (sd.octave !== undefined) {
         const oct = Math.max(1, Math.min(4, Math.round(sd.octave)));
         const baseNotes = ['C', 'E', 'G'];
-        voice.nodes.pattern.values = baseNotes.map(n => n + oct);
+        voice._arpNotes = baseNotes.map(n => n + oct);
       }
     }
 
@@ -423,7 +427,7 @@
       const dirs = ['up', 'down', 'upDown', 'random'];
       if (sd.direction !== undefined) {
         const idx = Math.max(0, Math.min(3, Math.round(sd.direction)));
-        voice.nodes.pattern.pattern = dirs[idx];
+        voice._arpDirection = dirs[idx];
       }
       if (sd.steps !== undefined) {
         const count = Math.max(2, Math.min(16, Math.round(sd.steps)));
@@ -432,7 +436,7 @@
         for (let i = 0; i < count; i++) {
           notes.push(base[i % 12] + '4');
         }
-        voice.nodes.pattern.values = notes;
+        voice._arpNotes = notes;
       }
     }
 
@@ -997,7 +1001,7 @@
       if (sd.grainSize !== undefined) voice._grainSize = sd.grainSize;
       if (sd.pitch !== undefined) {
         voice._pitch = sd.pitch;
-        voice._startGranularScheduler(voice);
+        this._startGranularScheduler(voice);
       }
     }
 
@@ -1011,7 +1015,7 @@
     _mapGrainDensity(voice, sd) {
       if (sd.density !== undefined) {
         voice._density = Math.max(1, Math.min(50, Math.round(sd.density)));
-        voice._startGranularScheduler(voice);
+        this._startGranularScheduler(voice);
       }
       if (sd.spread !== undefined) voice._spread = sd.spread;
     }

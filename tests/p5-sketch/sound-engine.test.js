@@ -252,4 +252,26 @@ describe('SoundEngine', () => {
       engine.disposeVoice(voice);
     }
   });
+
+  test('arp voice created without TypeError from Tone.Pattern', () => {
+    const slot = mockConfig.slots.find(s => s.soundType === 'arpRate');
+    const voice = engine.createVoice(5, slot);
+    expect(voice).toBeDefined();
+    expect(voice._noteIndex).toBeDefined();
+    expect(voice._arpNotes).toBeInstanceOf(Array);
+    expect(() => {
+      engine.updateVoice(voice, { rate: 2, spread: 1 }, slot);
+    }).not.toThrow();
+    engine.disposeVoice(voice);
+  });
+
+  test('grain voice update does not throw from _startGranularScheduler', () => {
+    const slot = mockConfig.slots.find(s => s.soundType === 'grainSize');
+    const voice = engine.createVoice(21, slot);
+    expect(voice).toBeDefined();
+    expect(() => {
+      engine.updateVoice(voice, { grainSize: 0.2, pitch: 0.5 }, slot);
+    }).not.toThrow();
+    engine.disposeVoice(voice);
+  });
 });
