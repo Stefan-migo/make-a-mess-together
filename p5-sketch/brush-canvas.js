@@ -47,6 +47,17 @@
       // Persistent brush state (for brushes needing history like sketchyPoints)
       this._brushState = {};
 
+      // --- Phase 2: Smooth Traces & Dead Zones ---
+      this.pressure = 0;
+      this._wasInDeadZone = true;
+      this._isInDeadZone = false;
+      this._historyX = [];
+      this._historyY = [];
+      this._historyP = [];
+      this._jitterScore = 0;
+      this._lastSignDx = 0;
+      this._lastSignDy = 0;
+
       // --- Phase 3: Lifecycle Properties ---
 
       // Connection blink: brief visual pulse on connection
@@ -95,6 +106,15 @@
       } else {
         this.paintBuffer = this._createPaintBuffer();
       }
+
+      // Phase 1: Pressure pipeline
+      this.pressureCurve = config.pressureCurve || 'natural';
+      this.pressureSmoothing = config.pressureSmoothing || 0.2;
+      this.deadZoneGamma = config.deadZoneGamma || 5;
+      this._smoothGamma = 0;
+
+      // Phase 2: Smooth Traces & Dead Zones
+      this.deadZonePosition = config.deadZonePosition || 3;
 
       // Phase 6: Auto-calibration for sensor-to-canvas mapping
       this._calibrated = false;
@@ -167,9 +187,9 @@
       if (!cursor) return;
 
       // Map orientation to position
-      const pos = this._sensorToPosition(sensorData);
+      const pos = this._sensorToPosition(sensorData, cursor);
 
-      // Apply EMA smoothing
+      // Initialize on first frame (must happen even in dead zone)
       if (!cursor.hasPrev) {
         cursor.smoothX = pos.x;
         cursor.smoothY = pos.y;
@@ -178,20 +198,59 @@
         cursor.prevX = pos.x;
         cursor.prevY = pos.y;
         cursor.hasPrev = true;
+      }
+
+      // --- Phase 2: Position Dead Zone ---
+      const orient = sensorData.orientation || {};
+      const alpha = orient.a !== undefined ? orient.a : 180;
+      const beta = orient.b !== undefined ? orient.b : 0;
+
+      let deltaAlpha = alpha - this._centerAlpha;
+      if (deltaAlpha > 180) deltaAlpha -= 360;
+      if (deltaAlpha < -180) deltaAlpha += 360;
+      let deltaBeta = beta - this._centerBeta;
+
+      const DEAD_ZONE_DEG = this.deadZonePosition !== undefined ? this.deadZonePosition : 3;
+      const isInDeadZone = Math.abs(deltaAlpha) < DEAD_ZONE_DEG && Math.abs(deltaBeta) < DEAD_ZONE_DEG;
+
+      if (isInDeadZone && cursor._wasInDeadZone) {
+        cursor._isInDeadZone = true;
+        // Still modulate sensor parameters (pressure, hue, etc.) even when stationary
+        this._modulateFromSensor(cursor, sensorData);
+        cursor.lastUpdate = Date.now();
+        return;
+      } else if (isInDeadZone) {
+        cursor._isInDeadZone = true;
+        cursor._wasInDeadZone = true;
+        this._modulateFromSensor(cursor, sensorData);
+        cursor.lastUpdate = Date.now();
+        return;
       } else {
+        cursor._isInDeadZone = false;
+        cursor._wasInDeadZone = false;
+
+        // Apply EMA smoothing
         cursor.smoothX = cursor.smoothX * (1 - cursor.smoothing) + pos.x * cursor.smoothing;
         cursor.smoothY = cursor.smoothY * (1 - cursor.smoothing) + pos.y * cursor.smoothing;
         cursor.prevX = cursor.x;
         cursor.prevY = cursor.y;
         cursor.x = cursor.smoothX;
         cursor.y = cursor.smoothY;
+
+        // Push to history ring buffer for Catmull-Rom interpolation
+        cursor._historyX.push(cursor.x);
+        cursor._historyY.push(cursor.y);
+        cursor._historyP.push(cursor.pressure);
+        if (cursor._historyX.length > 4) cursor._historyX.shift();
+        if (cursor._historyY.length > 4) cursor._historyY.shift();
+        if (cursor._historyP.length > 4) cursor._historyP.shift();
+
+        // Modulate brush parameters from sensor data
+        this._modulateFromSensor(cursor, sensorData);
+
+        // Draw brush stroke on paint buffer
+        this._drawBrush(cursor);
       }
-
-      // Modulate brush parameters from sensor data
-      this._modulateFromSensor(cursor, sensorData);
-
-      // Draw brush stroke on paint buffer
-      this._drawBrush(cursor);
 
       cursor.lastUpdate = Date.now();
     }
@@ -334,7 +393,7 @@
      * 
      * "Laser pointer" metaphor: tilt phone to aim the brush
      */
-    _sensorToPosition(sd) {
+    _sensorToPosition(sd, cursor) {
       const orient = sd.orientation || {};
       const alpha = orient.a !== undefined ? orient.a : 180;
       const beta = orient.b !== undefined ? orient.b : 0;
@@ -360,9 +419,24 @@
       let normX = Math.max(-1, Math.min(1, deltaAlpha / this._maxTiltDeg));
       let normY = Math.max(-1, Math.min(1, deltaBeta / this._maxTiltDeg));
 
-      // Apply EMA smoothing
-      this._smoothNormX = this._smoothNormX * (1 - this._smoothFactor) + normX * this._smoothFactor;
-      this._smoothNormY = this._smoothNormY * (1 - this._smoothFactor) + normY * this._smoothFactor;
+      // Phase 2: Adaptive EMA smoothing (per-cursor jitter tracking)
+      let smoothCoeff = this._smoothFactor;
+      if (cursor) {
+        const signDx = Math.sign(normX);
+        const signDy = Math.sign(normY);
+        const signChange = (signDx !== 0 && signDx !== cursor._lastSignDx) ||
+                           (signDy !== 0 && signDy !== cursor._lastSignDy) ? 1 : 0;
+        cursor._lastSignDx = signDx;
+        cursor._lastSignDy = signDy;
+
+        cursor._jitterScore = cursor._jitterScore * 0.9 + signChange * 0.1;
+
+        smoothCoeff = cursor._jitterScore > 0.3 ? 0.2 : 0.4;
+      }
+
+      // Apply EMA smoothing with adaptive coefficient
+      this._smoothNormX = this._smoothNormX * (1 - smoothCoeff) + normX * smoothCoeff;
+      this._smoothNormY = this._smoothNormY * (1 - smoothCoeff) + normY * smoothCoeff;
 
       // Apply sensitivity curve (fine control near center)
       const curvedX = Math.sign(this._smoothNormX) * Math.pow(Math.abs(this._smoothNormX), this._sensitivityExponent);
@@ -384,11 +458,45 @@
     }
 
     // ============================================================
+    // Private: Pressure Mapping (Phase 1)
+    // ============================================================
+
+    /**
+     * Compute pressure from orientation gamma (roll).
+     * Gamma range: -90 to +90 degrees.
+     * Uses dead zone, EMA smoothing, and configurable curve.
+     * @param {number} rawGamma - Raw orientation.gamma in degrees
+     * @returns {number} Pressure value 0.0-1.0
+     */
+    _computePressure(rawGamma) {
+      if (Math.abs(rawGamma) < this.deadZoneGamma) return 0;
+
+      const normalized = Math.min(1, Math.abs(rawGamma) / 90);
+
+      this._smoothGamma = this._smoothGamma * (1 - this.pressureSmoothing) + normalized * this.pressureSmoothing;
+
+      const exponent = this._getPressureExponent(this.pressureCurve);
+      const pressure = Math.pow(this._smoothGamma, exponent);
+
+      return Math.min(1, Math.max(0, pressure));
+    }
+
+    _getPressureExponent(curve) {
+      switch (curve) {
+        case 'linear': return 1.0;
+        case 'aggressive': return 0.7;
+        case 'natural':
+        default: return 1.5;
+      }
+    }
+
+    // ============================================================
     // Private: Sensor Modulation
     // ============================================================
 
     /**
      * Modulate brush color/size/opacity/scatter from accelerometer + gyroscope
+     * Size and opacity are now driven by orientation.gamma (pressure) instead of accel.y/z.
      */
     _modulateFromSensor(cursor, sd) {
       const accel = sd.accel || {};
@@ -397,16 +505,6 @@
       // Accel X: hue shift (0-360)
       const hueShift = accel.x !== undefined ? mapAndConstrain(accel.x, -20, 20, -60, 60) : 0;
       cursor.color.h = ((cursor.color.h + hueShift * 0.1) % 360 + 360) % 360;
-
-      // Accel Y: size (5-80)
-      if (accel.y !== undefined) {
-        cursor.size = mapAndConstrain(Math.abs(accel.y), 0, 20, 15, 80);
-      }
-
-      // Accel Z: opacity (0.1-1.0)
-      if (accel.z !== undefined) {
-        cursor.opacity = mapAndConstrain(Math.abs(accel.z), 0, 20, 0.1, 1.0);
-      }
 
       // Gyro α (alpha): scatter (0-40)
       if (gyro.a !== undefined) {
@@ -422,6 +520,20 @@
       if (gyro.g !== undefined) {
         cursor.color.s = mapAndConstrain(Math.abs(gyro.g), 0, 500, 20, 100);
       }
+
+      // Pressure → brushSize + opacity (Phase 1)
+      const gamma = (sd.orientation && sd.orientation.g !== undefined) ? sd.orientation.g : 0;
+      const newPressure = this._computePressure(gamma);
+
+      // Phase 2: Pressure delta limiter — prevent sudden pressure jumps
+      const MAX_PRESSURE_DELTA = this.config.pressureDeltaMax !== undefined ? this.config.pressureDeltaMax : 0.1;
+      let pressureDelta = newPressure - cursor.pressure;
+      if (pressureDelta > MAX_PRESSURE_DELTA) pressureDelta = MAX_PRESSURE_DELTA;
+      if (pressureDelta < -MAX_PRESSURE_DELTA) pressureDelta = -MAX_PRESSURE_DELTA;
+      cursor.pressure += pressureDelta;
+
+      cursor.size = 5 + cursor.pressure * (80 - 5);
+      cursor.opacity = 0.3 + cursor.pressure * (1.0 - 0.3);
     }
 
     // ============================================================
@@ -478,35 +590,53 @@
         saturation: hsbColor.s
       };
 
-      // Try using brush registry first
-      if (typeof drawBrush !== 'undefined') {
-        drawBrush(
-          cursor.brushType,
-          pb,
-          cursor.prevX, cursor.prevY,
-          cursor.x, cursor.y,
-          color,
-          cursor.size,
-          opts
-        );
-        return;
+      // Phase 2: Build drawing segments (Catmull-Rom or linear)
+      let segments = [];
+
+      if (cursor._historyX.length >= 4 && (this.config.interpolateSteps || 5) > 1) {
+        const STEPS = this.config.interpolateSteps || 5;
+        const p0x = cursor._historyX[0], p0y = cursor._historyY[0];
+        const p1x = cursor._historyX[1], p1y = cursor._historyY[1];
+        const p2x = cursor._historyX[2], p2y = cursor._historyY[2];
+        const p3x = cursor._historyX[3], p3y = cursor._historyY[3];
+
+        let prevIx = p1x, prevIy = p1y;
+        for (let i = 1; i <= STEPS; i++) {
+          const t = i / STEPS;
+          const ix = this._catmullRom(p0x, p1x, p2x, p3x, t);
+          const iy = this._catmullRom(p0y, p1y, p2y, p3y, t);
+          segments.push({ fromX: prevIx, fromY: prevIy, toX: ix, toY: iy });
+          prevIx = ix;
+          prevIy = iy;
+        }
+      } else {
+        segments.push({ fromX: cursor.prevX, fromY: cursor.prevY, toX: cursor.x, toY: cursor.y });
       }
 
-      // Fallback: Simple ellipse stroke
-      if (typeof pb.noStroke === 'function') pb.noStroke();
-      if (typeof pb.fill === 'function') {
-        const rgb = hsbToRgb(hsbColor.h, hsbColor.s, hsbColor.b);
-        pb.fill(rgb.r, rgb.g, rgb.b, effectiveOpacity);
-      }
-      if (typeof pb.ellipse === 'function') {
-        const d = this._dist(cursor.prevX, cursor.prevY, cursor.x, cursor.y);
-        const steps = Math.max(Math.floor(d), 1);
-        for (let i = 0; i <= steps; i++) {
-          const t = steps > 0 ? i / steps : 0;
-          const x = this._lerp(cursor.prevX, cursor.x, t);
-          const y = this._lerp(cursor.prevY, cursor.y, t);
-          pb.ellipse(x, y, cursor.size, cursor.size);
+      // Try using brush registry first
+      const drawSegment = (fromX, fromY, toX, toY) => {
+        if (typeof drawBrush !== 'undefined') {
+          drawBrush(cursor.brushType, pb, fromX, fromY, toX, toY, color, cursor.size, opts);
+        } else {
+          if (typeof pb.noStroke === 'function') pb.noStroke();
+          if (typeof pb.fill === 'function') {
+            pb.fill(color.r, color.g, color.b, effectiveOpacity);
+          }
+          if (typeof pb.ellipse === 'function') {
+            const d = this._dist(fromX, fromY, toX, toY);
+            const steps = Math.max(Math.floor(d), 1);
+            for (let i = 0; i <= steps; i++) {
+              const t = steps > 0 ? i / steps : 0;
+              const x = this._lerp(fromX, toX, t);
+              const y = this._lerp(fromY, toY, t);
+              pb.ellipse(x, y, cursor.size, cursor.size);
+            }
+          }
         }
+      };
+
+      for (const seg of segments) {
+        drawSegment(seg.fromX, seg.fromY, seg.toX, seg.toY);
       }
     }
 
@@ -522,6 +652,12 @@
 
     _lerp(a, b, t) {
       return a + (b - a) * t;
+    }
+
+    _catmullRom(p0, p1, p2, p3, t) {
+      const t2 = t * t;
+      const t3 = t2 * t;
+      return 0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3);
     }
   }
 

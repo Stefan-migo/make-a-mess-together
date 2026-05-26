@@ -67,6 +67,16 @@ const CONFIG = {
   canvasFadeRate: 0.005,
   canvasFadeInterval: 60,
 
+  // Phase 1: Pressure pipeline defaults (orientation.gamma → brush size/opacity)
+  pressureCurve: 'natural',
+  pressureSmoothing: 0.2,
+  deadZoneGamma: 5,
+
+  // Phase 2: Smooth Traces & Dead Zones
+  deadZonePosition: 3,
+  interpolateSteps: 5,
+  pressureDeltaMax: 0.1,
+
   slots: [
     // --- Synth types (0-4) ---
     { soundType: "synthBasic", visualType: "pulsingCircle", brushType: "classic", slotIndex: 0, color: { h: 0, s: 80, b: 90 }, sensorMap: { pitch: { source: "accel", axis: "y", range: [50, 2000], curve: "exponential" }, filter: { source: "gyro", axis: "z", range: [200, 8000], curve: "exponential" } } },

@@ -49,6 +49,7 @@
     animationId: null,
     brushType: 'classic',
     brushColor: { h: 0, s: 80, b: 90 },
+    pressureCurve: 'natural',
     sensorData: {
       accel: { x: 0, y: 0, z: 0 },
       gyro: { a: 0, b: 0, g: 0 },
@@ -88,6 +89,7 @@
       satValue: document.getElementById('sat-value'),
       briValue: document.getElementById('bri-value'),
       colorPreview: document.getElementById('color-preview'),
+      pressurePills: document.getElementById('pressure-pills'),
       // Axis elements — built dynamically
       axis: {}
     };
@@ -702,6 +704,23 @@
   }
 
   /**
+   * Set up pressure curve pill handlers.
+   */
+  function setupPressurePills() {
+    const pills = dom.pressurePills.querySelectorAll('.pill');
+    pills.forEach(function(pill) {
+      pill.addEventListener('click', function() {
+        const curve = this.dataset.pressure;
+        if (state.pressureCurve === curve) return;
+        state.pressureCurve = curve;
+        pills.forEach(function(p) { p.classList.remove('active'); });
+        this.classList.add('active');
+        saveAndSendConfig();
+      });
+    });
+  }
+
+  /**
    * Set up color slider event handlers.
    */
   function setupColorSliders() {
@@ -739,12 +758,13 @@
   function saveAndSendConfig() {
     const config = {
       brush: state.brushType,
-      color: { h: state.brushColor.h, s: state.brushColor.s, b: state.brushColor.b }
+      color: { h: state.brushColor.h, s: state.brushColor.s, b: state.brushColor.b },
+      pressureCurve: state.pressureCurve
     };
     try {
       localStorage.setItem('brushConfig', JSON.stringify(config));
     } catch (e) { /* ignore */ }
-    sendRaw({ type: 'config', brush: config.brush, color: config.color });
+    sendRaw({ type: 'config', brush: config.brush, color: config.color, pressureCurve: config.pressureCurve });
   }
 
   // =========================================================================
@@ -785,9 +805,29 @@
       }
     } catch (e) { /* ignore */ }
 
+    // Restore pressureCurve from saved config
+    try {
+      const savedBrush = localStorage.getItem('brushConfig');
+      if (savedBrush) {
+        const parsed = JSON.parse(savedBrush);
+        if (parsed.pressureCurve) state.pressureCurve = parsed.pressureCurve;
+      }
+    } catch (e) { /* ignore */ }
+
     // Build brush grid and setup color sliders
     buildBrushGrid();
     setupColorSliders();
+    setupPressurePills();
+
+    // Activate the saved pressure pill
+    dom.pressurePills.querySelectorAll('.pill').forEach(function(p) {
+      if (p.dataset.pressure === state.pressureCurve) {
+        p.classList.add('active');
+      } else {
+        p.classList.remove('active');
+      }
+    });
+
     updateColorPreview();
     dom.colorHue.value = state.brushColor.h;
     dom.colorSat.value = state.brushColor.s;

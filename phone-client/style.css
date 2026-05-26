@@ -534,6 +534,51 @@ body {
   margin-top: 4px;
 }
 
+/* ---------------------------------------------------------------------------
+   Pressure Curve Pills
+   --------------------------------------------------------------------------- */
+.control-section {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+.section-header {
+  color: #808080;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.pill-group {
+  display: flex;
+  gap: 6px;
+}
+
+.pill {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  color: #c0c0c0;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: 'Courier New', monospace;
+}
+
+.pill:hover {
+  border-color: #555;
+  color: #fff;
+}
+
+.pill.active {
+  background: #2563EB;
+  border-color: #2563EB;
+  color: #fff;
+}
+
 @media (max-width: 480px) {
   .brush-pill {
     font-size: 0.65rem;
