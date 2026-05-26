@@ -123,8 +123,8 @@
       this._smoothNormX = 0;
       this._smoothNormY = 0;
       this._smoothFactor = 0.4;
-      this._maxTiltDeg = 45;
-      this._sensitivityExponent = 0.6;
+      this._maxTiltDeg = 90;
+      this._sensitivityExponent = 2.0;
     }
 
     /**
@@ -486,7 +486,7 @@
         case 'linear': return 1.0;
         case 'aggressive': return 0.7;
         case 'natural':
-        default: return 1.5;
+        default: return 2.5;
       }
     }
 

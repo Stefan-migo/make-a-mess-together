@@ -385,11 +385,11 @@ describe('BrushCanvas — Phase 1: Pressure Pipeline', () => {
     expect(canvas._computePressure(0)).toBe(0);
   });
 
-  test('T031: _computePressure(γ=45) returns ~0.35 with curve=natural', () => {
+  test('T031: _computePressure(γ=45) returns ~0.18 with curve=natural', () => {
     const canvas = createCanvasWithPressure({ pressureSmoothing: 1.0, pressureCurve: 'natural' });
     const pressure = canvas._computePressure(45);
-    expect(pressure).toBeGreaterThan(0.30);
-    expect(pressure).toBeLessThan(0.40);
+    expect(pressure).toBeGreaterThan(0.15);
+    expect(pressure).toBeLessThan(0.20);
   });
 
   test('T032: _computePressure(γ=90) returns 1.0', () => {
