@@ -186,4 +186,37 @@ describe('Message Protocol', () => {
     expect(msg.type).toBe('system');
     expect(msg.event).toBe('assign');
   });
+
+  // -----------------------------------------------------------------------
+  // Batch message formatting (Bridge-Side Message Batching)
+  // -----------------------------------------------------------------------
+  test('formats sensor batch message with combined sensor data', () => {
+    const accel = { x: 0.1, y: 0.2, z: 9.81 };
+    const gyro = { a: 1, b: 2, g: 3 };
+    const orientation = { a: 45, b: 90, g: 0 };
+    const msg = relay.formatSensorBatchMessage(3, accel, gyro, orientation);
+    expect(msg).toEqual({
+      type: 'sensor',
+      slot: 3,
+      sensor: 'combined',
+      data: {
+        accel: { x: 0.1, y: 0.2, z: 9.81 },
+        gyro: { a: 1, b: 2, g: 3 },
+        orientation: { a: 45, b: 90, g: 0 }
+      }
+    });
+  });
+
+  test('formatSensorBatchMessage does not mutate input objects', () => {
+    const accel = { x: 0.1, y: 0.2, z: 9.81 };
+    const gyro = { a: 1, b: 2, g: 3 };
+    const orientation = { a: 45, b: 90, g: 0 };
+    const originalAccel = { ...accel };
+    const originalGyro = { ...gyro };
+    const originalOrientation = { ...orientation };
+    relay.formatSensorBatchMessage(0, accel, gyro, orientation);
+    expect(accel).toEqual(originalAccel);
+    expect(gyro).toEqual(originalGyro);
+    expect(orientation).toEqual(originalOrientation);
+  });
 });

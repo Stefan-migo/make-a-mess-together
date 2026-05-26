@@ -160,6 +160,28 @@ class MessageRelay {
       data: { ...data }
     };
   }
+
+  /**
+   * Format a combined sensor batch message with all three sensor types.
+   * Sends ONE message per phone per frame instead of three separate messages.
+   * @param {number} slot - Device slot number
+   * @param {object} accel - Accelerometer data { x, y, z }
+   * @param {object} gyro - Gyroscope data { a, b, g }
+   * @param {object} orientation - Orientation data { a, b, g }
+   * @returns {object}
+   */
+  formatSensorBatchMessage(slot, accel, gyro, orientation) {
+    return {
+      type: 'sensor',
+      slot,
+      sensor: 'combined',
+      data: {
+        accel: { ...accel },
+        gyro: { ...gyro },
+        orientation: { ...orientation }
+      }
+    };
+  }
 }
 
 module.exports = { MessageRelay };
