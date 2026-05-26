@@ -398,10 +398,12 @@ function handleSensorMessage(ws, info, msg) {
 
   const slot = info.slot;
 
-  // Relay each sensor type to all players
-  broadcastToPlayers(relay.formatSensorMessage(slot, 'accel', msg.accel), ws);
-  broadcastToPlayers(relay.formatSensorMessage(slot, 'gyro', msg.gyro), ws);
-  broadcastToPlayers(relay.formatSensorMessage(slot, 'orientation', msg.orientation), ws);
+  // Send ONE combined message instead of 3 separate messages
+  // Reduces message count from 2700/sec (30 phones × 30fps × 3) to 900/sec
+  broadcastToPlayers(
+    relay.formatSensorBatchMessage(slot, msg.accel, msg.gyro, msg.orientation),
+    ws
+  );
 }
 
 // ---------------------------------------------------------------------------
