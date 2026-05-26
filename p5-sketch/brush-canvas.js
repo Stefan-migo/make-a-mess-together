@@ -47,6 +47,11 @@
       // Persistent brush state (for brushes needing history like sketchyPoints)
       this._brushState = {};
 
+      // --- Pen up/down (Drawing Cone) ---
+      this.penDown = true;
+      this.wasPenDown = true;
+      this._penSmoothDeviation = 0;
+
       // --- Phase 2: Smooth Traces & Dead Zones ---
       this.pressure = 0;
       this._wasInDeadZone = true;
@@ -125,6 +130,11 @@
       this._smoothFactor = 0.4;
       this._maxTiltDeg = 90;
       this._sensitivityExponent = 2.0;
+
+      // Pen up/down (Drawing Cone)
+      this.penUpAngle = config.penUpAngle || 50;
+      this.penHysteresis = config.penHysteresis || 5;
+      this._rawDeviationDeg = 0;
     }
 
     /**
@@ -232,24 +242,41 @@
         // Apply EMA smoothing
         cursor.smoothX = cursor.smoothX * (1 - cursor.smoothing) + pos.x * cursor.smoothing;
         cursor.smoothY = cursor.smoothY * (1 - cursor.smoothing) + pos.y * cursor.smoothing;
-        cursor.prevX = cursor.x;
-        cursor.prevY = cursor.y;
         cursor.x = cursor.smoothX;
         cursor.y = cursor.smoothY;
-
-        // Push to history ring buffer for Catmull-Rom interpolation
-        cursor._historyX.push(cursor.x);
-        cursor._historyY.push(cursor.y);
-        cursor._historyP.push(cursor.pressure);
-        if (cursor._historyX.length > 4) cursor._historyX.shift();
-        if (cursor._historyY.length > 4) cursor._historyY.shift();
-        if (cursor._historyP.length > 4) cursor._historyP.shift();
 
         // Modulate brush parameters from sensor data
         this._modulateFromSensor(cursor, sensorData);
 
-        // Draw brush stroke on paint buffer
-        this._drawBrush(cursor);
+        // --- Pen up/down (Drawing Cone) ---
+        const dev = this._rawDeviationDeg;
+        const upThreshold = this.penUpAngle + this.penHysteresis / 2;
+        const downThreshold = this.penUpAngle - this.penHysteresis / 2;
+
+        if (!cursor.penDown && dev < downThreshold) {
+          cursor.penDown = true;
+          cursor.wasPenDown = true;
+          cursor.prevX = cursor.x;
+          cursor.prevY = cursor.y;
+        }
+
+        if (cursor.penDown && dev > upThreshold) {
+          cursor.penDown = false;
+        }
+
+        if (cursor.penDown) {
+          cursor._historyX.push(cursor.x);
+          cursor._historyY.push(cursor.y);
+          cursor._historyP.push(cursor.pressure);
+          if (cursor._historyX.length > 4) cursor._historyX.shift();
+          if (cursor._historyY.length > 4) cursor._historyY.shift();
+          if (cursor._historyP.length > 4) cursor._historyP.shift();
+
+          this._drawBrush(cursor);
+
+          cursor.prevX = cursor.x;
+          cursor.prevY = cursor.y;
+        }
       }
 
       cursor.lastUpdate = Date.now();
@@ -437,6 +464,13 @@
       // Apply EMA smoothing with adaptive coefficient
       this._smoothNormX = this._smoothNormX * (1 - smoothCoeff) + normX * smoothCoeff;
       this._smoothNormY = this._smoothNormY * (1 - smoothCoeff) + normY * smoothCoeff;
+
+      // Compute angular deviation from center for pen up/down
+      const deviationDeg = Math.sqrt(
+        this._smoothNormX * this._smoothNormX +
+        this._smoothNormY * this._smoothNormY
+      ) * this._maxTiltDeg;
+      this._rawDeviationDeg = deviationDeg;
 
       // Apply sensitivity curve (fine control near center)
       const curvedX = Math.sign(this._smoothNormX) * Math.pow(Math.abs(this._smoothNormX), this._sensitivityExponent);
