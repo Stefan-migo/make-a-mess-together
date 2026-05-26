@@ -239,6 +239,71 @@ describe('DeviceManager', () => {
     expect(active).toContain(8);
     expect(active.length).toBe(3);
   });
+
+  test('updateCombinedSensor processes all three sensor types at once', () => {
+    const sm = {
+      pitch: { source: 'accel', axis: 'y', range: [50, 2000], curve: 'linear' },
+      filter: { source: 'gyro', axis: 'g', range: [200, 8000], curve: 'exponential' },
+      pan: { source: 'orientation', axis: 'a', range: [-1, 1], curve: 'linear' }
+    };
+    testConfig.slots[0].sensorMap = sm;
+
+    dm.assign(0);
+    const voice = dm._voices[0];
+    expect(voice).toBeDefined();
+
+    const data = {
+      accel: { x: 0.1, y: 5, z: -3 },
+      gyro: { a: 0.5, b: 1, g: 2 },
+      orientation: { a: 90, b: 45, g: 0 }
+    };
+
+    dm.updateCombinedSensor(0, data);
+
+    expect(dm._sensorCache[0]).toBeDefined();
+    expect(dm._sensorCache[0].accel).toEqual(data.accel);
+    expect(dm._sensorCache[0].gyro).toEqual(data.gyro);
+    expect(dm._sensorCache[0].orientation).toEqual(data.orientation);
+
+    expect(voice.lastSensorData).toBeDefined();
+    expect(voice.lastSensorData.pitch).toBeGreaterThan(50);
+    expect(voice.lastSensorData.filter).toBeGreaterThan(200);
+    expect(voice.lastSensorData.pan).toBeGreaterThanOrEqual(-1);
+    expect(voice.lastSensorData.pan).toBeLessThanOrEqual(1);
+
+    delete testConfig.slots[0].sensorMap;
+  });
+
+  test('updateCombinedSensor does not throw when no voice exists', () => {
+    expect(() => {
+      dm.updateCombinedSensor(99, {
+        accel: { x: 0, y: 0, z: 9.81 },
+        gyro: { a: 0, b: 0, g: 0 },
+        orientation: { a: 0, b: 0, g: 0 }
+      });
+    }).not.toThrow();
+  });
+
+  test('updateCombinedSensor does not throw with partial data', () => {
+    dm.assign(0);
+    expect(() => {
+      dm.updateCombinedSensor(0, {
+        accel: { x: 1, y: 2, z: 3 }
+      });
+    }).not.toThrow();
+  });
+
+  test('updateSensor still works after updateCombinedSensor — backward compat', () => {
+    dm.assign(0);
+    dm.updateCombinedSensor(0, {
+      accel: { x: 0.1, y: 5, z: -3 },
+      gyro: { a: 0.5, b: 1, g: 2 },
+      orientation: { a: 90, b: 45, g: 0 }
+    });
+    expect(() => {
+      dm.updateSensor(0, 'accel', { x: 0.2, y: 3, z: 9 });
+    }).not.toThrow();
+  });
 });
 
 describe('DeviceManager — Phase 5: Stripped Dependencies', () => {

@@ -144,7 +144,11 @@ function handleMessage(msg) {
       break;
 
     case 'sensor':
-      dm.updateSensor(msg.slot, msg.sensor, msg.data);
+      if (msg.sensor === 'combined') {
+        dm.updateCombinedSensor(msg.slot, msg.data);
+      } else {
+        dm.updateSensor(msg.slot, msg.sensor, msg.data);
+      }
       break;
   }
 }

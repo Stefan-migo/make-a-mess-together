@@ -38,6 +38,59 @@
       }
     }
 
+    updateCombinedSensor(slot, data) {
+      if (!this._sensorCache[slot]) {
+        this._sensorCache[slot] = {};
+      }
+      if (data.accel) this._sensorCache[slot].accel = { ...data.accel };
+      if (data.gyro) this._sensorCache[slot].gyro = { ...data.gyro };
+      if (data.orientation) this._sensorCache[slot].orientation = { ...data.orientation };
+
+      if (this._brushCanvas) {
+        this._brushCanvas.updateCursor(slot, this._sensorCache[slot]);
+      }
+
+      const voice = this._voices[slot];
+      if (!voice) return;
+
+      const slotConfig = this._config.slots[slot];
+      if (!slotConfig) return;
+
+      const sensorMap = slotConfig.sensorMap;
+      if (!sensorMap) return;
+
+      const paramNames = Object.keys(sensorMap);
+      if (paramNames.length === 0) return;
+
+      const mapped = {};
+
+      for (const paramName of paramNames) {
+        const paramConfig = sensorMap[paramName];
+        const normRange = SensorMapper.getNormalizationRange(paramConfig.source, paramConfig.axis);
+        const fullConfig = {
+          source: paramConfig.source,
+          axis: paramConfig.axis,
+          range: paramConfig.range,
+          curve: paramConfig.curve || 'linear',
+          normMin: normRange.min,
+          normMax: normRange.max
+        };
+
+        const value = SensorMapper.getSensorValue(this._sensorCache[slot], paramConfig.source, paramConfig.axis, fullConfig);
+
+        if (voice.lastSensorData && voice.lastSensorData[paramName] !== undefined) {
+          const coeff = this._config.smoothCoefficient || 0.3;
+          mapped[paramName] = SensorMapper.smooth(voice.lastSensorData[paramName], value, coeff);
+        } else {
+          mapped[paramName] = value;
+        }
+      }
+
+      voice.lastSensorData = mapped;
+
+      this._engine.updateVoice(voice, mapped, this._config);
+    }
+
     updateSensor(slot, sensorType, data) {
       // 1. Accumulate sensor data in combined cache (always)
       if (!this._sensorCache[slot]) {
