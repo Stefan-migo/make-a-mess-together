@@ -79,6 +79,36 @@ describe('SensorMapper', () => {
     });
   });
 
+  describe('cache', () => {
+    test('caches normalized value and reuses it when raw unchanged', () => {
+      const sensorData = { accel: { x: 0, y: 5, z: 0 }, gyro: { a: 0, b: 0, g: 0 }, orientation: { a: 0, b: 0, g: 0 } };
+      const config = { source: 'accel', axis: 'y', range: [50, 2000], curve: 'linear' };
+      const result1 = SensorMapper.getSensorValue(sensorData, 'accel', 'y', config);
+      const spy = jest.spyOn(SensorMapper, 'normalize');
+      const result2 = SensorMapper.getSensorValue(sensorData, 'accel', 'y', config);
+      expect(spy).not.toHaveBeenCalled();
+      expect(result2).toBe(result1);
+      spy.mockRestore();
+    });
+
+    test('recomputes when raw value changes', () => {
+      const config = { source: 'accel', axis: 'y', range: [50, 2000], curve: 'linear' };
+      const data1 = { accel: { x: 0, y: 5, z: 0 }, gyro: { a: 0, b: 0, g: 0 }, orientation: { a: 0, b: 0, g: 0 } };
+      const data2 = { accel: { x: 0, y: -3, z: 0 }, gyro: { a: 0, b: 0, g: 0 }, orientation: { a: 0, b: 0, g: 0 } };
+      const result1 = SensorMapper.getSensorValue(data1, 'accel', 'y', config);
+      const result2 = SensorMapper.getSensorValue(data2, 'accel', 'y', config);
+      expect(result2).not.toBe(result1);
+    });
+
+    test('clearCache resets cache', () => {
+      const sensorData = { accel: { x: 0, y: 5, z: 0 }, gyro: { a: 0, b: 0, g: 0 }, orientation: { a: 0, b: 0, g: 0 } };
+      const config = { source: 'accel', axis: 'y', range: [50, 2000], curve: 'linear' };
+      SensorMapper.getSensorValue(sensorData, 'accel', 'y', config);
+      SensorMapper.clearCache();
+      expect(SensorMapper._normalizedCache).toEqual({});
+    });
+  });
+
   describe('getSensorValue', () => {
     test('maps accel.y to pitch range 50..2000 Hz', () => {
       const sensorData = { accel: { x: 0, y: 5, z: 0 }, gyro: { a: 0, b: 0, g: 0 }, orientation: { a: 0, b: 0, g: 0 } };

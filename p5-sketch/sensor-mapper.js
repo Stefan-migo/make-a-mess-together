@@ -1,5 +1,7 @@
 (function(global) {
   const SensorMapper = {
+    _normalizedCache: {},
+
     normalize(value, min, max) {
       if (typeof value !== 'number' || isNaN(value)) return 0;
       if (max === min) return 0.5;
@@ -38,6 +40,7 @@
       let raw = 0;
       const s = source || (paramConfig ? paramConfig.source : null);
       const a = axis || (paramConfig ? paramConfig.axis : null);
+      const cacheKey = s + '|' + a;
 
       if (s === 'accelMag') {
         const x = sensorData.accel ? sensorData.accel.x || 0 : 0;
@@ -52,12 +55,24 @@
         raw = val;
       }
 
-      const normRange = SensorMapper.getNormalizationRange(s || 'accel', a);
-      const norm = SensorMapper.normalize(raw, normRange.min, normRange.max);
+      const cacheEntry = this._normalizedCache[cacheKey];
+      let norm;
+      if (cacheEntry && cacheEntry.raw === raw) {
+        norm = cacheEntry.normalized;
+      } else {
+        const normRange = this.getNormalizationRange(s || 'accel', a);
+        norm = this.normalize(raw, normRange.min, normRange.max);
+        this._normalizedCache[cacheKey] = { raw, normalized: norm };
+      }
+
       const curve = paramConfig ? paramConfig.curve || 'linear' : 'linear';
       const rMin = paramConfig ? paramConfig.range[0] : 0;
       const rMax = paramConfig ? paramConfig.range[1] : 1;
-      return SensorMapper.mapCurve(norm, rMin, rMax, curve);
+      return this.mapCurve(norm, rMin, rMax, curve);
+    },
+
+    clearCache() {
+      this._normalizedCache = {};
     },
 
     _normalizationRanges: {
