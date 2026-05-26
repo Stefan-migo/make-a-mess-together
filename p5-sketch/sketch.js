@@ -35,6 +35,9 @@ function draw() {
     }
   }
 
+  // Process voices with frame-budget governor
+  dm.processAllVoices();
+
   // HUD overlay
   push();
   fill(0, 0, 100, 0.6);
@@ -59,6 +62,11 @@ function draw() {
   const cursorCount = brushCanvas ? brushCanvas.activeCount : 0;
   fill(0, 0, 100, 0.4);
   text('Cursors: ' + cursorCount + "  ['b' toggle brush]", pad, pad + 76);
+
+  // Skipped slots count (frame-budget governor)
+  const skippedCount = dm._frameBudget ? dm._frameBudget.skippedSlots.size : 0;
+  fill(0, 0, 100, 0.4);
+  text('Skipped: ' + skippedCount, pad, pad + 96);
 
   pop();
 }
