@@ -414,9 +414,11 @@ function handleConfigMessage(ws, info, msg) {
   const config = {};
   if (msg.brush) config.brush = msg.brush;
   if (msg.color) config.color = { ...msg.color };
+  if (msg.pressureCurve) config.pressureCurve = msg.pressureCurve;
+  if (msg.penDown !== undefined) config.penDown = msg.penDown;
   if (Object.keys(config).length === 0) return;
   broadcastToPlayers(relay.formatConfigMessage(info.slot, config));
-  console.log(`[config] Slot ${info.slot}: brush config updated`);
+  console.log(`[config] Slot ${info.slot}:`, JSON.stringify(config));
 }
 
 // ---------------------------------------------------------------------------

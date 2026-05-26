@@ -133,7 +133,7 @@ class MessageRelay {
   /**
    * Format a config update message for broadcast to players.
    * @param {number} slot - Device slot number
-   * @param {object} config - Config object { brush?, color? }
+   * @param {object} config - Config object { brush?, color?, pressureCurve?, penDown? }
    * @returns {object}
    */
   formatConfigMessage(slot, config) {

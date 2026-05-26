@@ -163,6 +163,9 @@
         if (config.color.b !== undefined) cursor.color.b = config.color.b;
         cursor.color.a = 1;
       }
+      if (config.pressureCurve) {
+        cursor.pressureCurve = config.pressureCurve;
+      }
       if (config.penDown !== undefined) {
         cursor.penDown = config.penDown;
       }
