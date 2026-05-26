@@ -34,8 +34,9 @@ global.Tone = {
     dispose() {}
   },
   AmplitudeEnvelope: class {
-    constructor() { this.attack = 0.01; this.decay = 0.3; this.sustain = 0.4; this.release = 0.5; }
+    constructor() { this.attack = 0.01; this.decay = 0.3; this.sustain = 0.4; this.release = 0.5; this._triggered = false; }
     connect(n) { return n; }
+    triggerAttack() { this._triggered = true; }
     triggerAttackRelease(d, t) {}
     dispose() {}
   },
@@ -240,5 +241,15 @@ describe('SoundEngine', () => {
       engine.updateVoice(voice, { roomSize: 0.8, wetDry: 0.5 }, mockConfig);
     }).not.toThrow();
     engine.disposeVoice(voice);
+  });
+
+  test('synth voices trigger their AmplitudeEnvelope on creation (BUG FIX)', () => {
+    const synthTypes = ['synthBasic', 'synthFM', 'synthDuo', 'synthMono'];
+    for (const type of synthTypes) {
+      const slotIdx = mockConfig.slots.findIndex(s => s.soundType === type);
+      const voice = engine.createVoice(slotIdx, mockConfig.slots[slotIdx]);
+      expect(voice.nodes.env._triggered).toBe(true);
+      engine.disposeVoice(voice);
+    }
   });
 });

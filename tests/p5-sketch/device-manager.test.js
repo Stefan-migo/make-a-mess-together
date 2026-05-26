@@ -36,6 +36,7 @@ global.Tone = {
   AmplitudeEnvelope: class {
     constructor() { this.attack = 0.01; this.decay = 0.3; this.sustain = 0.4; this.release = 0.5; }
     connect(n) { return n; }
+    triggerAttack() {}
     triggerAttackRelease(d, t) {}
     dispose() {}
   },

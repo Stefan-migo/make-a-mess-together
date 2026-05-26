@@ -115,6 +115,7 @@
       osc.connect(filter);
       filter.connect(env);
       env.connect(gain);
+      env.triggerAttack();
       osc.start();
 
       const sends = this._makeSendGains(gain);
@@ -159,6 +160,7 @@
       carrier.connect(filter);
       filter.connect(env);
       env.connect(gain);
+      env.triggerAttack();
       carrier.start();
       modulator.start();
 
@@ -238,6 +240,7 @@
       mixGain.connect(filter);
       filter.connect(env);
       env.connect(this._audioBus.masterGain);
+      env.triggerAttack();
       osc1.start();
       osc2.start();
 
@@ -277,6 +280,7 @@
       osc.connect(filter);
       filter.connect(env);
       env.connect(gain);
+      env.triggerAttack();
       osc.start();
 
       const sends = this._makeSendGains(gain);
