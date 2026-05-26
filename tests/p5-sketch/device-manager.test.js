@@ -176,6 +176,7 @@ describe('DeviceManager', () => {
     testConfig.slots[0].sensorMap = sm;
 
     dm.assign(0);
+    dm._useFrameBudgetGovernor = false;
     const voice = dm._voices[0];
     expect(voice).toBeDefined();
     expect(voice.lastSensorData).toBeNull();
@@ -249,6 +250,7 @@ describe('DeviceManager', () => {
     testConfig.slots[0].sensorMap = sm;
 
     dm.assign(0);
+    dm._useFrameBudgetGovernor = false;
     const voice = dm._voices[0];
     expect(voice).toBeDefined();
 
@@ -360,5 +362,129 @@ describe('DeviceManager — Phase 5: Stripped Dependencies', () => {
       dm2.disconnect(0);
     }).not.toThrow();
     dm2.disposeAll();
+  });
+});
+
+describe('DeviceManager — Frame-Budget Governor', () => {
+  let dm;
+  let originalPerformanceNow;
+
+  beforeAll(() => {
+    originalPerformanceNow = performance.now.bind(performance);
+  });
+
+  afterAll(() => {
+    performance.now = originalPerformanceNow;
+  });
+
+  beforeEach(() => {
+    const bus = new AudioBus();
+    const engine = new SoundEngine(bus);
+    const cfg = JSON.parse(JSON.stringify(testConfig));
+    cfg.slots[0].sensorMap = {
+      pitch: { source: 'accel', axis: 'y', range: [50, 2000], curve: 'linear' }
+    };
+    cfg.slots[1].sensorMap = {
+      filter: { source: 'gyro', axis: 'g', range: [200, 8000], curve: 'exponential' }
+    };
+    cfg.slots[2].sensorMap = {
+      depth: { source: 'gyro', axis: 'a', range: [0, 1], curve: 'linear' }
+    };
+    dm = new DeviceManager(engine, cfg);
+  });
+
+  afterEach(() => {
+    dm.disposeAll();
+  });
+
+  test('processAllVoices processes all active slots when within budget', () => {
+    performance.now = originalPerformanceNow;
+
+    dm.assign(0);
+    dm.assign(1);
+
+    dm.updateCombinedSensor(0, {
+      accel: { x: 0, y: 5, z: 0 },
+      gyro: { a: 0, b: 0, g: 0 },
+      orientation: { a: 0, b: 0, g: 0 }
+    });
+    dm.updateCombinedSensor(1, {
+      accel: { x: 0, y: 0, z: 0 },
+      gyro: { a: 0, b: 0, g: 2 },
+      orientation: { a: 0, b: 0, g: 0 }
+    });
+
+    dm.processAllVoices();
+
+    const voice0 = dm._voices[0];
+    const voice1 = dm._voices[1];
+    expect(voice0.lastSensorData).toBeDefined();
+    expect(voice0.lastSensorData.pitch).toBeGreaterThan(50);
+    expect(voice1.lastSensorData).toBeDefined();
+    expect(voice1.lastSensorData.filter).toBeGreaterThan(200);
+    expect(dm._frameBudget.skippedSlots.size).toBe(0);
+  });
+
+  test('processAllVoices skips slots when budget exceeded', () => {
+    let callCount = 0;
+    performance.now = jest.fn(() => {
+      callCount++;
+      if (callCount <= 2) return 1000;
+      return 1100;
+    });
+
+    dm.assign(0);
+    dm.assign(1);
+    dm.assign(2);
+
+    for (let i = 0; i < 3; i++) {
+      dm.updateCombinedSensor(i, {
+        accel: { x: 0, y: 5, z: 0 },
+        gyro: { a: 0, b: 0, g: 2 },
+        orientation: { a: 0, b: 0, g: 0 }
+      });
+    }
+
+    dm.processAllVoices();
+
+    const voice0 = dm._voices[0];
+    expect(voice0.lastSensorData).toBeDefined();
+
+    const voice1 = dm._voices[1];
+    expect(voice1.lastSensorData).toBeNull();
+
+    const voice2 = dm._voices[2];
+    expect(voice2.lastSensorData).toBeNull();
+
+    performance.now = originalPerformanceNow;
+  });
+
+  test('skipped slots are reported in _frameBudget.skippedSlots', () => {
+    let callCount = 0;
+    performance.now = jest.fn(() => {
+      callCount++;
+      if (callCount <= 2) return 1000;
+      return 1100;
+    });
+
+    dm.assign(0);
+    dm.assign(1);
+    dm.assign(2);
+
+    for (let i = 0; i < 3; i++) {
+      dm.updateCombinedSensor(i, {
+        accel: { x: 0, y: 5, z: 0 },
+        gyro: { a: 0, b: 0, g: 2 },
+        orientation: { a: 0, b: 0, g: 0 }
+      });
+    }
+
+    dm.processAllVoices();
+
+    expect(dm._frameBudget.skippedSlots.has(1)).toBe(true);
+    expect(dm._frameBudget.skippedSlots.has(2)).toBe(true);
+    expect(dm._frameBudget.skippedSlots.has(0)).toBe(false);
+
+    performance.now = originalPerformanceNow;
   });
 });

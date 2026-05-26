@@ -6,6 +6,12 @@
       this._brushCanvas = brushCanvas || null;
       this._voices = {};
       this._sensorCache = {};
+      this._useFrameBudgetGovernor = true;
+      this._frameBudget = {
+        maxVoiceTimePerFrame: 8,
+        skippedSlots: new Set(),
+        frameDeadline: 0,
+      };
     }
 
     assign(slot) {
@@ -50,6 +56,75 @@
         this._brushCanvas.updateCursor(slot, this._sensorCache[slot]);
       }
 
+      if (!this._useFrameBudgetGovernor) {
+        this._processVoiceInline(slot);
+      }
+    }
+
+    _processVoiceInline(slot) {
+      const voice = this._voices[slot];
+      if (!voice) return;
+
+      const slotConfig = this._config.slots[slot];
+      if (!slotConfig) return;
+
+      const sensorMap = slotConfig.sensorMap;
+      if (!sensorMap) return;
+
+      const paramNames = Object.keys(sensorMap);
+      if (paramNames.length === 0) return;
+
+      const mapped = {};
+
+      for (const paramName of paramNames) {
+        const paramConfig = sensorMap[paramName];
+        const normRange = SensorMapper.getNormalizationRange(paramConfig.source, paramConfig.axis);
+        const fullConfig = {
+          source: paramConfig.source,
+          axis: paramConfig.axis,
+          range: paramConfig.range,
+          curve: paramConfig.curve || 'linear',
+          normMin: normRange.min,
+          normMax: normRange.max
+        };
+
+        const value = SensorMapper.getSensorValue(this._sensorCache[slot], paramConfig.source, paramConfig.axis, fullConfig);
+
+        if (voice.lastSensorData && voice.lastSensorData[paramName] !== undefined) {
+          const coeff = this._config.smoothCoefficient || 0.3;
+          mapped[paramName] = SensorMapper.smooth(voice.lastSensorData[paramName], value, coeff);
+        } else {
+          mapped[paramName] = value;
+        }
+      }
+
+      voice.lastSensorData = mapped;
+
+      this._engine.updateVoice(voice, mapped, this._config);
+    }
+
+    beginFrame() {
+      this._frameBudget.frameDeadline = performance.now() + this._frameBudget.maxVoiceTimePerFrame;
+      this._frameBudget.skippedSlots.clear();
+    }
+
+    endFrame() {
+      // Reset for next frame; skippedSlots is already cleared in beginFrame
+    }
+
+    processAllVoices() {
+      this.beginFrame();
+      for (const slot of this.activeSlots) {
+        if (performance.now() > this._frameBudget.frameDeadline) {
+          this._frameBudget.skippedSlots.add(slot);
+          continue;
+        }
+        this._processVoice(slot);
+      }
+      this.endFrame();
+    }
+
+    _processVoice(slot) {
       const voice = this._voices[slot];
       if (!voice) return;
 
@@ -92,7 +167,6 @@
     }
 
     updateSensor(slot, sensorType, data) {
-      // 1. Accumulate sensor data in combined cache (always)
       if (!this._sensorCache[slot]) {
         this._sensorCache[slot] = {};
       }
@@ -100,7 +174,6 @@
                             sensorType === 'accel' ? 'accel' : 'gyro';
       this._sensorCache[slot][sensorTypeKey] = { ...data };
 
-      // 2. Update brush cursor with combined data (always — independent of voice)
       if (this._brushCanvas) {
         const combined = {
           accel: this._sensorCache[slot].accel || {},
@@ -110,46 +183,9 @@
         this._brushCanvas.updateCursor(slot, combined);
       }
 
-      // 3. Voice processing (only if voice exists)
-      const voice = this._voices[slot];
-      if (!voice) return;
-
-      const slotConfig = this._config.slots[slot];
-      if (!slotConfig) return;
-
-      const sensorMap = slotConfig.sensorMap;
-      if (!sensorMap) return;
-
-      const paramNames = Object.keys(sensorMap);
-      if (paramNames.length === 0) return;
-
-      const mapped = {};
-
-      for (const paramName of paramNames) {
-        const paramConfig = sensorMap[paramName];
-        const normRange = SensorMapper.getNormalizationRange(paramConfig.source, paramConfig.axis);
-        const fullConfig = {
-          source: paramConfig.source,
-          axis: paramConfig.axis,
-          range: paramConfig.range,
-          curve: paramConfig.curve || 'linear',
-          normMin: normRange.min,
-          normMax: normRange.max
-        };
-
-        const value = SensorMapper.getSensorValue(this._sensorCache[slot], paramConfig.source, paramConfig.axis, fullConfig);
-
-        if (voice.lastSensorData && voice.lastSensorData[paramName] !== undefined) {
-          const coeff = this._config.smoothCoefficient || 0.3;
-          mapped[paramName] = SensorMapper.smooth(voice.lastSensorData[paramName], value, coeff);
-        } else {
-          mapped[paramName] = value;
-        }
+      if (!this._useFrameBudgetGovernor) {
+        this._processVoiceInline(slot);
       }
-
-      voice.lastSensorData = mapped;
-
-      this._engine.updateVoice(voice, mapped, this._config);
     }
 
     updateConfig(slot, config) {
