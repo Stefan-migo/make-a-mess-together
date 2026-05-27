@@ -1,18 +1,5 @@
 #!/usr/bin/env node
 
-/**
- * phone-sensor-orchestra — Bridge Server
- * 
- * HTTP + WebSocket server on port 8080.
- * Accepts phone sensor connections and p5 player connections.
- * Allocates slots (0-29), relays sensor data to players.
- * 
- * Usage:
- *   node server-bridge/index.js
- * 
- * Spec: .specify/specs/01-bridge-server.md
- */
-
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -20,6 +7,7 @@ const os = require('os');
 const { WebSocketServer } = require('ws');
 const { SlotAllocator } = require('./slot-allocator');
 const { MessageRelay } = require('./message-relay');
+const { OscSender } = require('./osc-sender');
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -30,27 +18,9 @@ const ZOMBIE_TIMEOUT = 30000;     // 30s no-data = zombie
 const COOLDOWN_MS = 5000;         // 5s slot cooldown
 
 // ---------------------------------------------------------------------------
-// State
-// ---------------------------------------------------------------------------
-const allocator = new SlotAllocator(30, COOLDOWN_MS);
-const relay = new MessageRelay();
-
-// Map of ws connection -> connection info
-const connections = new Map();  // WebSocket -> { role, slot, type, lastSeen }
-
-// Set of player WebSocket connections (p5 sketches)
-const players = new Set();      // WebSocket (player role only)
-
-// Counter for connection IDs
-let connectionIdCounter = 0;
-
-// ---------------------------------------------------------------------------
 // Utilities
 // ---------------------------------------------------------------------------
 
-/**
- * Get the LAN IP address of this machine.
- */
 function getLanIp() {
   const interfaces = os.networkInterfaces();
   for (const name of Object.keys(interfaces)) {
@@ -63,227 +33,277 @@ function getLanIp() {
   return '127.0.0.1';
 }
 
-/**
- * Broadcast a JSON message to all connected p5 players.
- * @param {object} msg - Message to broadcast (will be JSON.stringify'd)
- * @param {WebSocket} exclude - Optional WS to exclude (the sender)
- */
-function broadcastToPlayers(msg, exclude = null) {
-  const data = JSON.stringify(msg);
-  const deadPlayers = [];
-
-  for (const player of players) {
-    if (player === exclude) continue;
-    if (player.readyState !== 1) { // WebSocket.OPEN
-      deadPlayers.push(player);
-      continue;
-    }
-    // Backpressure guard: if buffer is full, skip
-    if (player.bufferedAmount > 1024 * 64) { // 64KB buffer limit
-      continue;
-    }
-    try {
-      player.send(data);
-    } catch (e) {
-      deadPlayers.push(player);
-    }
-  }
-
-  // Clean up dead player connections
-  for (const dead of deadPlayers) {
-    players.delete(dead);
-    connections.delete(dead);
-  }
-}
-
-/**
- * Send a message to all players with current state.
- */
-function broadcastState() {
-  const devices = [];
-  for (const [ws, info] of connections) {
-    if (info.role === 'sensor') {
-      devices.push({
-        slot: info.slot,
-        label: `Phone ${info.slot}`,
-        type: info.type || 'sensor'
-      });
-    }
-  }
-
-  broadcastToPlayers({
-    type: 'system',
-    event: 'state',
-    deviceCount: allocator.activeCount,
-    playerCount: players.size,
-    devices
-  });
-}
-
-/**
- * Get the connected sensor info for a slot.
- */
-function getSensorForSlot(slot) {
-  for (const [ws, info] of connections) {
-    if (info.role === 'sensor' && info.slot === slot) {
-      return ws;
-    }
-  }
-  return null;
+function parseDawArg() {
+  const idx = process.argv.indexOf('--daw');
+  if (idx === -1) return null;
+  const val = process.argv[idx + 1];
+  if (!val || val.startsWith('--')) return '127.0.0.1:9000';
+  return val;
 }
 
 // ---------------------------------------------------------------------------
-// HTTP Server
+// Bridge Factory
 // ---------------------------------------------------------------------------
 
-const MIME_TYPES = {
-  '.html': 'text/html',
-  '.css': 'text/css',
-  '.js': 'application/javascript',
-  '.json': 'application/json',
-  '.png': 'image/png',
-  '.svg': 'image/svg+xml'
-};
+function createBridge(options = {}) {
+  const allocator = new SlotAllocator(30, COOLDOWN_MS);
+  const relay = new MessageRelay();
+  const connections = new Map();
+  const players = new Set();
+  let connectionIdCounter = 0;
 
-function handleRequest(req, res) {
-  // Bug #3: Wrap URL parsing in try-catch to prevent crash on malformed headers
-  let pathname;
-  try {
-    pathname = new URL(req.url, `http://${req.headers.host}`).pathname;
-  } catch (e) {
-    res.writeHead(400, { 'Content-Type': 'text/plain' });
-    res.end('Bad Request');
-    return;
+  // -----------------------------------------------------------------------
+  // OscSender (DAW integration)
+  // -----------------------------------------------------------------------
+
+  let oscSender = null;
+  if (options.daw) {
+    const [host, portStr] = String(options.daw).split(':');
+    const port = parseInt(portStr, 10) || 9000;
+    oscSender = new OscSender(host, port);
   }
 
-  // Health check endpoint
-  if (pathname === '/health') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      status: 'ok',
-      uptime: process.uptime(),
-      devices: allocator.activeCount,
-      players: players.size
-    }));
-    return;
-  }
+  // -----------------------------------------------------------------------
+  // Internal helpers
+  // -----------------------------------------------------------------------
 
-  // Serve static files
-  let filePath;
-  // Bug #2: Redirect /phone-client to /phone-client/ so relative URLs (CSS/JS) resolve correctly
-  if (pathname === '/phone-client') {
-    res.writeHead(302, { 'Location': '/phone-client/' });
-    res.end();
-    return;
-  } else if (pathname.startsWith('/phone-client/')) {
-    const relative = pathname.replace('/phone-client/', '');
-    filePath = path.join(__dirname, '..', 'phone-client', relative || 'index.html');
-  } else {
-    filePath = path.join(__dirname, 'public', pathname === '/' ? 'index.html' : pathname);
-  }
-  const ext = path.extname(filePath);
-  const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+  function broadcastToPlayers(msg, exclude = null) {
+    const data = JSON.stringify(msg);
+    const deadPlayers = [];
 
-  fs.readFile(filePath, (err, content) => {
-    if (err) {
-      if (err.code === 'ENOENT') {
-        // Bug #1: Return proper 404 instead of silently serving dashboard
-        // Bug #4: Log routing failures for debugging
-        console.log('[http]', req.method, pathname, '→ 404 (not found:', filePath, ')');
-        res.writeHead(404, { 'Content-Type': 'text/html' });
-        res.end('<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Not Found</title><style>body{background:#0a0a0a;color:#e5e7eb;font-family:monospace;display:flex;justify-content:center;align-items:center;height:100vh;margin:0}div{text-align:center}h1{font-size:3rem;margin:0;color:#dc2626}p{color:#6b7280}</style></head><body><div><h1>404</h1><p>Not Found</p></div></body></html>');
-      } else {
-        res.writeHead(500);
-        res.end('Internal Server Error');
+    for (const player of players) {
+      if (player === exclude) continue;
+      if (player.readyState !== 1) {
+        deadPlayers.push(player);
+        continue;
       }
-      return;
+      if (player.bufferedAmount > 1024 * 64) {
+        continue;
+      }
+      try {
+        player.send(data);
+      } catch (e) {
+        deadPlayers.push(player);
+      }
     }
-    res.writeHead(200, { 'Content-Type': contentType });
-    res.end(content);
-  });
-}
 
-const httpServer = http.createServer(handleRequest);
+    for (const dead of deadPlayers) {
+      players.delete(dead);
+      connections.delete(dead);
+    }
+  }
 
-// ---------------------------------------------------------------------------
-// WebSocket Server
-// ---------------------------------------------------------------------------
+  function broadcastState() {
+    const devices = [];
+    for (const [ws, info] of connections) {
+      if (info.role === 'sensor') {
+        devices.push({
+          slot: info.slot,
+          label: `Phone ${info.slot}`,
+          type: info.type || 'sensor'
+        });
+      }
+    }
 
-const wss = new WebSocketServer({ server: httpServer });
+    broadcastToPlayers({
+      type: 'system',
+      event: 'state',
+      deviceCount: allocator.activeCount,
+      playerCount: players.size,
+      devices
+    });
+  }
 
-wss.on('connection', (ws) => {
-  const connId = ++connectionIdCounter;
-  const connInfo = {
-    id: connId,
-    role: null,        // 'sensor' | 'player' | null
-    slot: -1,          // assigned slot (for sensors)
-    type: 'pending',   // connection type label
-    lastSeen: Date.now(),
-    connectedAt: Date.now(),
-    messageCount: 0
+  function getSensorForSlot(slot) {
+    for (const [ws, info] of connections) {
+      if (info.role === 'sensor' && info.slot === slot) {
+        return ws;
+      }
+    }
+    return null;
+  }
+
+  // -----------------------------------------------------------------------
+  // HTTP Request Handler
+  // -----------------------------------------------------------------------
+
+  const MIME_TYPES = {
+    '.html': 'text/html',
+    '.css': 'text/css',
+    '.js': 'application/javascript',
+    '.json': 'application/json',
+    '.png': 'image/png',
+    '.svg': 'image/svg+xml'
   };
-  connections.set(ws, connInfo);
 
-  // -----------------------------------------------------------------------
-  // Message handler — first message determines role
-  // -----------------------------------------------------------------------
-  ws.on('message', (data) => {
-    connInfo.lastSeen = Date.now();
-
-    let msg;
+  function handleRequest(req, res) {
+    let pathname;
     try {
-      msg = JSON.parse(data.toString());
+      pathname = new URL(req.url, `http://${req.headers.host}`).pathname;
     } catch (e) {
-      // Invalid JSON — ignore
+      res.writeHead(400, { 'Content-Type': 'text/plain' });
+      res.end('Bad Request');
       return;
     }
 
-    // If role not yet determined, use first message to detect
-    if (!connInfo.role) {
-      const role = relay.detectRole(msg);
-      if (!role) {
-        // Unknown role — close connection
-        ws.close(4000, 'Unknown connection role');
+    if (pathname === '/health') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        status: 'ok',
+        uptime: process.uptime(),
+        devices: allocator.activeCount,
+        players: players.size
+      }));
+      return;
+    }
+
+    let filePath;
+    if (pathname === '/phone-client') {
+      res.writeHead(302, { 'Location': '/phone-client/' });
+      res.end();
+      return;
+    } else if (pathname.startsWith('/phone-client/')) {
+      const relative = pathname.replace('/phone-client/', '');
+      filePath = path.join(__dirname, '..', 'phone-client', relative || 'index.html');
+    } else {
+      filePath = path.join(__dirname, 'public', pathname === '/' ? 'index.html' : pathname);
+    }
+    const ext = path.extname(filePath);
+    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+
+    fs.readFile(filePath, (err, content) => {
+      if (err) {
+        if (err.code === 'ENOENT') {
+          console.log('[http]', req.method, pathname, '→ 404 (not found:', filePath, ')');
+          res.writeHead(404, { 'Content-Type': 'text/html' });
+          res.end('<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Not Found</title><style>body{background:#0a0a0a;color:#e5e7eb;font-family:monospace;display:flex;justify-content:center;align-items:center;height:100vh;margin:0}div{text-align:center}h1{font-size:3rem;margin:0;color:#dc2626}p{color:#6b7280}</style></head><body><div><h1>404</h1><p>Not Found</p></div></body></html>');
+        } else {
+          res.writeHead(500);
+          res.end('Internal Server Error');
+        }
         return;
       }
+      res.writeHead(200, { 'Content-Type': contentType });
+      res.end(content);
+    });
+  }
 
-      connInfo.role = role;
+  // -----------------------------------------------------------------------
+  // Servers
+  // -----------------------------------------------------------------------
 
-      if (role === 'sensor') {
-        handleSensorConnect(ws, connInfo);
-      } else if (role === 'player') {
-        handlePlayerConnect(ws, connInfo);
-      }
+  const httpServer = http.createServer(handleRequest);
+  const wss = new WebSocketServer({ server: httpServer });
+
+  // -----------------------------------------------------------------------
+  // Connection Handlers
+  // -----------------------------------------------------------------------
+
+  function handleSensorConnect(ws, info) {
+    const slot = allocator.allocate();
+    if (slot === -1) {
+      ws.close(4001, 'All slots are full');
+      console.log('[connect] All 30 slots full — rejected');
       return;
     }
 
-    // Role already determined — handle based on role
-    if (connInfo.role === 'sensor') {
-      if (msg.type === 'sensor') {
-        handleSensorMessage(ws, connInfo, msg);
-      } else if (msg.type === 'config') {
-        handleConfigMessage(ws, connInfo, msg);
-      }
-    } else if (connInfo.role === 'player') {
-      // Players don't send messages
-    }
-  });
+    info.slot = slot;
+    info.type = 'sensor';
 
-  // -----------------------------------------------------------------------
-  // Disconnect handler
-  // -----------------------------------------------------------------------
-  ws.on('close', () => {
+    const assignMsg = {
+      type: 'assigned',
+      slot: slot,
+      bridgeIp: getLanIp()
+    };
+    ws.send(JSON.stringify(assignMsg));
+
+    broadcastToPlayers(relay.formatAssignMessage(slot));
+    broadcastToPlayers(relay.formatCountMessage(allocator.activeCount));
+
+    if (oscSender) {
+      oscSender.sendAssign(slot);
+      oscSender.sendCount(allocator.activeCount);
+    }
+
+    console.log(`[connect] Sensor #${info.id} assigned slot ${slot}`);
+    broadcastState();
+  }
+
+  function handlePlayerConnect(ws, info) {
+    info.type = 'player';
+    players.add(ws);
+
+    const devices = [];
+    for (const [conn, connInfo] of connections) {
+      if (connInfo.role === 'sensor') {
+        devices.push({
+          slot: connInfo.slot,
+          label: `Phone ${connInfo.slot}`
+        });
+      }
+    }
+
+    ws.send(JSON.stringify({
+      type: 'system',
+      event: 'state',
+      deviceCount: allocator.activeCount,
+      playerCount: players.size,
+      devices
+    }));
+
+    ws.send(JSON.stringify(relay.formatCountMessage(allocator.activeCount)));
+
+    console.log(`[connect] Player #${info.id} connected (${players.size} total players)`);
+  }
+
+  function handleSensorMessage(ws, info, msg) {
+    info.messageCount++;
+
+    const validation = relay.validateSensorMessage(msg);
+    if (!validation.valid) {
+      return;
+    }
+
+    const slot = info.slot;
+
+    broadcastToPlayers(
+      relay.formatSensorBatchMessage(slot, msg.accel, msg.gyro, msg.orientation),
+      ws
+    );
+
+    if (oscSender) {
+      oscSender.sendAccel(slot, msg.accel.x, msg.accel.y, msg.accel.z);
+      oscSender.sendGyro(slot, msg.gyro.a, msg.gyro.b, msg.gyro.g);
+      oscSender.sendOrientation(slot, msg.orientation.a, msg.orientation.b, msg.orientation.g);
+    }
+  }
+
+  function handleConfigMessage(ws, info, msg) {
+    const config = {};
+    if (msg.brush) config.brush = msg.brush;
+    if (msg.color) config.color = { ...msg.color };
+    if (msg.pressureCurve) config.pressureCurve = msg.pressureCurve;
+    if (msg.penDown !== undefined) config.penDown = msg.penDown;
+    if (Object.keys(config).length === 0) return;
+    broadcastToPlayers(relay.formatConfigMessage(info.slot, config));
+    console.log(`[config] Slot ${info.slot}:`, JSON.stringify(config));
+  }
+
+  function handleDisconnect(ws) {
     const info = connections.get(ws);
     if (!info) return;
 
     if (info.role === 'sensor' && info.slot >= 0) {
-      // Free the slot with cooldown
       allocator.free(info.slot);
       allocator.startCooldown(info.slot);
 
-      // Broadcast disconnect to players
       broadcastToPlayers(relay.formatDisconnectMessage(info.slot));
       broadcastToPlayers(relay.formatCountMessage(allocator.activeCount));
+
+      if (oscSender) {
+        oscSender.sendDisconnect(info.slot);
+        oscSender.sendCount(allocator.activeCount);
+      }
 
       console.log(`[disconnect] Slot ${info.slot} freed (device #${info.id})`);
     }
@@ -295,184 +315,144 @@ wss.on('connection', (ws) => {
 
     connections.delete(ws);
     broadcastState();
-  });
-
-  // -----------------------------------------------------------------------
-  // Error handler
-  // -----------------------------------------------------------------------
-  ws.on('error', () => {
-    // Error already triggers close
-  });
-
-  // -----------------------------------------------------------------------
-  // Send initial message to identify as bridge
-  // -----------------------------------------------------------------------
-  ws.send(JSON.stringify({
-    type: 'system',
-    event: 'hello',
-    version: 1,
-    server: 'phone-sensor-orchestra-bridge'
-  }));
-});
-
-// ---------------------------------------------------------------------------
-// Sensor Connection Handling
-// ---------------------------------------------------------------------------
-
-function handleSensorConnect(ws, info) {
-  const slot = allocator.allocate();
-  if (slot === -1) {
-    ws.close(4001, 'All slots are full');
-    console.log('[connect] All 30 slots full — rejected');
-    return;
   }
 
-  info.slot = slot;
-  info.type = 'sensor';
+  // -----------------------------------------------------------------------
+  // WebSocket Connection Handler
+  // -----------------------------------------------------------------------
 
-  // Send assigned message back to phone
-  const assignMsg = {
-    type: 'assigned',
-    slot: slot,
-    bridgeIp: getLanIp()
+  wss.on('connection', (ws) => {
+    const connId = ++connectionIdCounter;
+    const connInfo = {
+      id: connId,
+      role: null,
+      slot: -1,
+      type: 'pending',
+      lastSeen: Date.now(),
+      connectedAt: Date.now(),
+      messageCount: 0
+    };
+    connections.set(ws, connInfo);
+
+    ws.on('message', (data) => {
+      connInfo.lastSeen = Date.now();
+
+      let msg;
+      try {
+        msg = JSON.parse(data.toString());
+      } catch (e) {
+        return;
+      }
+
+      if (!connInfo.role) {
+        const role = relay.detectRole(msg);
+        if (!role) {
+          ws.close(4000, 'Unknown connection role');
+          return;
+        }
+
+        connInfo.role = role;
+
+        if (role === 'sensor') {
+          handleSensorConnect(ws, connInfo);
+        } else if (role === 'player') {
+          handlePlayerConnect(ws, connInfo);
+        }
+        return;
+      }
+
+      if (connInfo.role === 'sensor') {
+        if (msg.type === 'sensor') {
+          handleSensorMessage(ws, connInfo, msg);
+        } else if (msg.type === 'config') {
+          handleConfigMessage(ws, connInfo, msg);
+        }
+      }
+    });
+
+    ws.on('close', () => handleDisconnect(ws));
+
+    ws.on('error', () => {});
+
+    ws.send(JSON.stringify({
+      type: 'system',
+      event: 'hello',
+      version: 1,
+      server: 'phone-sensor-orchestra-bridge'
+    }));
+  });
+
+  // -----------------------------------------------------------------------
+  // Heartbeat — Periodic ping + zombie detection
+  // -----------------------------------------------------------------------
+
+  const heartbeatTimer = setInterval(() => {
+    const now = Date.now();
+
+    for (const [ws, info] of connections) {
+      if (ws.readyState !== 1) {
+        if (typeof ws.terminate === 'function') ws.terminate();
+        continue;
+      }
+
+      if (info.role === 'player') continue;
+
+      if (now - info.lastSeen > ZOMBIE_TIMEOUT) {
+        console.log(`[zombie] Closing zombie connection #${info.id} (slot ${info.slot}, role: ${info.role})`);
+        ws.close(4002, 'Zombie timeout');
+        continue;
+      }
+
+      try {
+        ws.ping();
+      } catch (e) {
+        ws.terminate();
+      }
+    }
+  }, HEARTBEAT_INTERVAL);
+
+  heartbeatTimer.unref();
+
+  // -----------------------------------------------------------------------
+  // State broadcast timer
+  // -----------------------------------------------------------------------
+
+  const stateTimer = setInterval(() => {
+    broadcastState();
+  }, 5000);
+
+  stateTimer.unref();
+
+  // -----------------------------------------------------------------------
+  // Return bridge internals
+  // -----------------------------------------------------------------------
+
+  return {
+    httpServer,
+    wss,
+    oscSender,
+    allocator,
+    relay,
+    connections,
+    players,
+    _handleRequest: handleRequest,
+    _handleSensorConnect: handleSensorConnect,
+    _handleSensorMessage: handleSensorMessage,
+    _handleConfigMessage: handleConfigMessage,
+    _handlePlayerConnect: handlePlayerConnect,
+    _handleDisconnect: handleDisconnect
   };
-  ws.send(JSON.stringify(assignMsg));
-
-  // Broadcast to all players
-  broadcastToPlayers(relay.formatAssignMessage(slot));
-  broadcastToPlayers(relay.formatCountMessage(allocator.activeCount));
-
-  console.log(`[connect] Sensor #${info.id} assigned slot ${slot}`);
-
-  // Broadcast updated state
-  broadcastState();
 }
 
 // ---------------------------------------------------------------------------
-// Player Connection Handling
-// ---------------------------------------------------------------------------
-
-function handlePlayerConnect(ws, info) {
-  info.type = 'player';
-  players.add(ws);
-
-  // Send current state to the new player
-  const devices = [];
-  for (const [conn, connInfo] of connections) {
-    if (connInfo.role === 'sensor') {
-      devices.push({
-        slot: connInfo.slot,
-        label: `Phone ${connInfo.slot}`
-      });
-    }
-  }
-
-  // Send initial state
-  ws.send(JSON.stringify({
-    type: 'system',
-    event: 'state',
-    deviceCount: allocator.activeCount,
-    playerCount: players.size,
-    devices
-  }));
-
-  // Also send current count
-  ws.send(JSON.stringify(relay.formatCountMessage(allocator.activeCount)));
-
-  console.log(`[connect] Player #${info.id} connected (${players.size} total players)`);
-}
-
-// ---------------------------------------------------------------------------
-// Sensor Message Handling
-// ---------------------------------------------------------------------------
-
-function handleSensorMessage(ws, info, msg) {
-  info.messageCount++;
-
-  // Validate the sensor message
-  const validation = relay.validateSensorMessage(msg);
-  if (!validation.valid) {
-    // Silently ignore invalid messages (phone might send malformed data)
-    return;
-  }
-
-  const slot = info.slot;
-
-  // Send ONE combined message instead of 3 separate messages
-  // Reduces message count from 2700/sec (30 phones × 30fps × 3) to 900/sec
-  broadcastToPlayers(
-    relay.formatSensorBatchMessage(slot, msg.accel, msg.gyro, msg.orientation),
-    ws
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Config Message Handling
-// ---------------------------------------------------------------------------
-
-function handleConfigMessage(ws, info, msg) {
-  const config = {};
-  if (msg.brush) config.brush = msg.brush;
-  if (msg.color) config.color = { ...msg.color };
-  if (msg.pressureCurve) config.pressureCurve = msg.pressureCurve;
-  if (msg.penDown !== undefined) config.penDown = msg.penDown;
-  if (Object.keys(config).length === 0) return;
-  broadcastToPlayers(relay.formatConfigMessage(info.slot, config));
-  console.log(`[config] Slot ${info.slot}:`, JSON.stringify(config));
-}
-
-// ---------------------------------------------------------------------------
-// Heartbeat — Periodic ping + zombie detection
-// ---------------------------------------------------------------------------
-
-const heartbeatTimer = setInterval(() => {
-  const now = Date.now();
-
-  for (const [ws, info] of connections) {
-    // Non-open connections: force-close so the close event handler
-    // runs proper cleanup (slot free, disconnect broadcast).
-    if (ws.readyState !== 1) {
-      ws.terminate();
-      continue;
-    }
-
-    // Skip zombie check for players — they're receive-only after initial message
-    if (info.role === 'player') continue;
-
-    // Check for zombies (no data in ZOMBIE_TIMEOUT)
-    if (now - info.lastSeen > ZOMBIE_TIMEOUT) {
-      console.log(`[zombie] Closing zombie connection #${info.id} (slot ${info.slot}, role: ${info.role})`);
-      ws.close(4002, 'Zombie timeout');
-      continue;
-    }
-
-    // Send ping — failure means the socket is gone
-    try {
-      ws.ping();
-    } catch (e) {
-      ws.terminate();
-    }
-  }
-}, HEARTBEAT_INTERVAL);
-
-// Allow process to exit even if heartbeat timer is running
-heartbeatTimer.unref();
-
-// ---------------------------------------------------------------------------
-// State broadcast timer — periodically notify players of device list
-// ---------------------------------------------------------------------------
-
-const stateTimer = setInterval(() => {
-  broadcastState();
-}, 5000); // Every 5 seconds
-stateTimer.unref();
-
-// ---------------------------------------------------------------------------
-// Start
+// CLI Entry Point
 // ---------------------------------------------------------------------------
 
 if (require.main === module) {
-  httpServer.listen(PORT, () => {
+  const dawArg = parseDawArg();
+  const bridge = createBridge({ daw: dawArg });
+
+  bridge.httpServer.listen(PORT, () => {
     const ip = getLanIp();
     console.log();
     console.log('╔══════════════════════════════════════════════════════╗');
@@ -482,6 +462,9 @@ if (require.main === module) {
     console.log(`║  LAN IP    : ${(ip + ':' + PORT).padEnd(42)}║`);
     const dashboardUrl = `http://${ip}:${PORT}`;
     console.log(`║  Dashboard : ${dashboardUrl.padEnd(42)}║`);
+    if (bridge.oscSender) {
+      console.log(`║  OSC DAW   : ${dawArg.padEnd(42)}║`);
+    }
     console.log('║                                                    ║');
     console.log(`║  Max slots : ${String(30).padEnd(42)}║`);
     console.log(`║  Heartbeat : ${String(HEARTBEAT_INTERVAL / 1000) + 's interval'.padEnd(35)}║`);
@@ -492,36 +475,28 @@ if (require.main === module) {
     console.log(`Discovery page at http://${ip}:${PORT}`);
     console.log();
   });
-}
 
-module.exports = { handleRequest, httpServer };
+  function shutdown() {
+    console.log('\nShutting down...');
 
-// ---------------------------------------------------------------------------
-// Graceful shutdown
-// ---------------------------------------------------------------------------
+    for (const [ws] of bridge.connections) {
+      ws.close(4001, 'Server shutting down');
+    }
+    bridge.connections.clear();
+    bridge.players.clear();
 
-function shutdown() {
-  console.log('\nShutting down...');
+    bridge.allocator.destroy();
 
-  // Close all WebSocket connections
-  for (const [ws] of connections) {
-    ws.close(4001, 'Server shutting down');
+    bridge.wss.close();
+    bridge.httpServer.close(() => {
+      process.exit(0);
+    });
+
+    setTimeout(() => process.exit(1), 3000);
   }
-  connections.clear();
-  players.clear();
 
-  // Clean up allocator
-  allocator.destroy();
-
-  // Close server
-  wss.close();
-  httpServer.close(() => {
-    process.exit(0);
-  });
-
-  // Force exit after 3 seconds
-  setTimeout(() => process.exit(1), 3000);
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
 }
 
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
+module.exports = { createBridge };

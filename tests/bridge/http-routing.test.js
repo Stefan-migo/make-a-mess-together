@@ -1,12 +1,14 @@
 const http = require('http');
-const { handleRequest } = require('../../server-bridge/index');
+const { createBridge } = require('../../server-bridge/index');
 
 describe('HTTP Routing', () => {
+  let bridge;
   let server;
   let baseUrl;
 
   beforeAll((done) => {
-    server = http.createServer(handleRequest);
+    bridge = createBridge({});
+    server = bridge.httpServer;
     server.listen(0, () => {
       baseUrl = `http://localhost:${server.address().port}`;
       done();
@@ -14,6 +16,9 @@ describe('HTTP Routing', () => {
   });
 
   afterAll((done) => {
+    if (bridge) {
+      try { bridge.wss.close(); } catch (_) {}
+    }
     if (server) server.close(done);
   });
 
@@ -77,7 +82,7 @@ describe('HTTP Routing', () => {
     const req = { url: '/test', headers: { host: 'localhost:invalid_port' } };
     const res = { writeHead: jest.fn(), end: jest.fn() };
 
-    handleRequest(req, res);
+    bridge._handleRequest(req, res);
 
     expect(res.writeHead).toHaveBeenCalledWith(400, { 'Content-Type': 'text/plain' });
     expect(res.end).toHaveBeenCalledWith('Bad Request');
