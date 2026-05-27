@@ -12,7 +12,7 @@ global.Tone = {
     toDestination() { return this; }
   },
   Reverb: class {
-    constructor() { this.roomSize = { value: 0.5 }; this.wet = { value: 0.3 }; this.decay = 2; }
+    constructor() { this.wet = { value: 0.3 }; this.decay = 2; }
     connect(n) { return n; }
     dispose() {}
   },
@@ -238,7 +238,7 @@ describe('SoundEngine', () => {
   test('updateVoice for FX modulator does not throw', () => {
     const voice = engine.createVoice(25, mockConfig.slots[25]);
     expect(() => {
-      engine.updateVoice(voice, { roomSize: 0.8, wetDry: 0.5 }, mockConfig);
+      engine.updateVoice(voice, { decay: 0.8, wetDry: 0.5 }, mockConfig);
     }).not.toThrow();
     engine.disposeVoice(voice);
   });

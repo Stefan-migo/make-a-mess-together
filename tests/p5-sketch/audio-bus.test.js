@@ -12,7 +12,7 @@ global.Tone = {
     toDestination() { return this; }
   },
   Reverb: class {
-    constructor() { this.roomSize = { value: 0.5 }; this.wet = { value: 0.3 }; this.decay = 2; }
+    constructor() { this.wet = { value: 0.3 }; this.decay = 2; }
     connect(n) { return n; }
     dispose() {}
   },

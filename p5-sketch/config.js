@@ -31,7 +31,7 @@ const CONFIG = {
   frameRate: 30,
 
   // Shared FX bus defaults
-  reverb: { roomSize: 0.5, wet: 0.3, decay: 2 },
+  reverb: { wet: 0.3, decay: 2 },
   delay: { delayTime: 0.3, feedback: 0.4, wet: 0.2 },
   masterVolume: 0.8,
 
@@ -120,7 +120,7 @@ const CONFIG = {
     { soundType: "grainPosition", visualType: "slidingWindow", brushType: "abstract", slotIndex: 24, color: { h: 288, s: 80, b: 90 }, sensorMap: { bufPos: { source: "accel", axis: "y", range: [0, 1], curve: "linear" }, overlap: { source: "gyro", axis: "a", range: [0, 0.5], curve: "linear" } } },
 
     // --- FX Bus Modulator types (25-29) ---
-    { soundType: "reverb", visualType: "abstractShape", brushType: "trail", slotIndex: 25, isFxModulator: true, color: { h: 300, s: 80, b: 90 }, sensorMap: { roomSize: { source: "orientation", axis: "a", range: [0.1, 0.9], curve: "linear" }, wetDry: { source: "accel", axis: "z", range: [0, 1], curve: "linear" } } },
+    { soundType: "reverb", visualType: "abstractShape", brushType: "trail", slotIndex: 25, isFxModulator: true, color: { h: 300, s: 80, b: 90 }, sensorMap: { decay: { source: "orientation", axis: "a", range: [0.5, 4], curve: "linear" }, wetDry: { source: "accel", axis: "z", range: [0, 1], curve: "linear" } } },
     { soundType: "delay", visualType: "echoGhosts", brushType: "isometric", slotIndex: 26, isFxModulator: true, color: { h: 312, s: 80, b: 90 }, sensorMap: { delayTime: { source: "gyro", axis: "b", range: [0.05, 0.8], curve: "exponential" }, feedback: { source: "accel", axis: "y", range: [0, 0.9], curve: "linear" } } },
     { soundType: "distortion", visualType: "warpDistortion", brushType: "triangulate", slotIndex: 27, isFxModulator: true, color: { h: 324, s: 80, b: 90 }, sensorMap: { amount: { source: "accel", axis: "x", range: [0, 1], curve: "linear" }, gain: { source: "gyro", axis: "g", range: [0, 2], curve: "linear" } } },
     { soundType: "chorus", visualType: "rippleRings", brushType: "mirror-h", slotIndex: 28, isFxModulator: true, color: { h: 336, s: 80, b: 90 }, sensorMap: { depth: { source: "orientation", axis: "b", range: [0, 10], curve: "linear" }, rate: { source: "gyro", axis: "a", range: [0.1, 5], curve: "exponential" } } },

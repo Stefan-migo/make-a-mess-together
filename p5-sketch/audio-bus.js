@@ -6,7 +6,7 @@
       this._masterGain.connect(this._limiter);
       this._limiter.toDestination();
 
-      this._reverb = new Tone.Reverb({ roomSize: 0.5, wet: 0.3, decay: 2 });
+      this._reverb = new Tone.Reverb({ wet: 0.3, decay: 2 });
       this._reverbSend = new Tone.Gain(0.3);
       this._reverbReturn = new Tone.Gain(0.5);
       this._reverbSend.connect(this._reverb);
@@ -28,7 +28,6 @@
 
     setReverbParam(param, value) {
       switch (param) {
-        case 'roomSize': this._reverb.roomSize.value = value; break;
         case 'wet': this._reverb.wet.value = value; break;
         case 'decay': this._reverb.decay = value; break;
       }

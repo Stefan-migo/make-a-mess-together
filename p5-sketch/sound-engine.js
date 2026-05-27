@@ -1065,7 +1065,7 @@
       const bus = this._audioBus;
       switch (voice.type) {
         case 'reverb':
-          if (sd.roomSize !== undefined) bus.setReverbParam('roomSize', sd.roomSize);
+          if (sd.decay !== undefined) bus.setReverbParam('decay', sd.decay);
           if (sd.wetDry !== undefined) bus.setReverbParam('wet', sd.wetDry);
           break;
         case 'delay':
