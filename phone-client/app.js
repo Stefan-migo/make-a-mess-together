@@ -679,10 +679,10 @@
     const brushes = [
       'classic', 'blade', 'dotted', 'stamped', 'velocity', 'dash',
       'sketchy', 'watercolor', 'spray', 'chalk', 'smoke', 'furry',
-      'neon', 'plasma', 'fire', 'frost', 'lightning', 'glitch',
-      'leaf', 'vine', 'feather', 'cloud', 'splatter', 'honey',
-      'wormhole', 'ripple', 'fractal', 'dna', 'gravity', 'kaleido',
-      'spores', 'pixelsort', 'echo', 'void'
+      'neon', 'plasma', 'vortex', 'bead', 'bubble', 'star',
+      'quantum', 'aurora', 'geometric', 'pixel', 'shattered', 'web',
+      'abstract', 'trail', 'isometric', 'triangulate',
+      'mirror-h', 'mirror-v', 'mirror-quad', 'mirror-tri', 'mirror-hex', 'mirror-twelve'
     ];
     const grid = dom.brushGrid;
     brushes.forEach(function(name) {
