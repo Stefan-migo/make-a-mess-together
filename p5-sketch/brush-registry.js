@@ -760,6 +760,24 @@
     }
   });
 
+  // --- 34. Spray Paint — PNG image stamp at cursor position
+  registerBrush('spray-paint', (pg, x1, y1, x2, y2, color, size, opts) => {
+    const img = typeof window !== 'undefined' ? window.sprayBrushImg : null;
+    if (!img) return;
+
+    const a = opts.alpha !== undefined ? opts.alpha : 255;
+
+    pg.push();
+    pg.translate(x2, y2);
+
+    const stampSize = size * 3;
+    pg.imageMode(pg.CENTER);
+    pg.tint(color.r, color.g, color.b, a);
+    pg.image(img, 0, 0, stampSize, stampSize);
+    pg.noTint();
+    pg.pop();
+  });
+
   // ============================================================
   // HELPERS
   // ============================================================
