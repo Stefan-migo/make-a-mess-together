@@ -682,7 +682,8 @@
       'neon', 'plasma', 'vortex', 'bead', 'bubble', 'star',
       'quantum', 'aurora', 'geometric', 'pixel', 'shattered', 'web',
       'abstract', 'trail', 'isometric', 'triangulate',
-      'mirror-h', 'mirror-v', 'mirror-quad', 'mirror-tri', 'mirror-hex', 'mirror-twelve'
+      'mirror-h', 'mirror-v', 'mirror-quad', 'mirror-tri', 'mirror-hex', 'mirror-twelve',
+      'spray-paint'
     ];
     const grid = dom.brushGrid;
     brushes.forEach(function(name) {
