@@ -383,31 +383,36 @@ describe('BrushCanvas — Phase 1: Pressure Pipeline', () => {
 
   test('T030: _computePressure(γ=0) returns 0 (dead zone)', () => {
     const canvas = createCanvasWithPressure({ pressureSmoothing: 1.0, deadZoneGamma: 5 });
-    expect(canvas._computePressure(0)).toBe(0);
+    const cursor = canvas.getCursor(0);
+    expect(canvas._computePressure(0, cursor)).toBe(0);
   });
 
   test('T031: _computePressure(γ=45) returns ~0.18 with curve=natural', () => {
     const canvas = createCanvasWithPressure({ pressureSmoothing: 1.0, pressureCurve: 'natural' });
-    const pressure = canvas._computePressure(45);
+    const cursor = canvas.getCursor(0);
+    const pressure = canvas._computePressure(45, cursor);
     expect(pressure).toBeGreaterThan(0.15);
     expect(pressure).toBeLessThan(0.20);
   });
 
   test('T032: _computePressure(γ=90) returns 1.0', () => {
     const canvas = createCanvasWithPressure({ pressureSmoothing: 1.0 });
-    expect(canvas._computePressure(90)).toBeCloseTo(1.0, 5);
+    const cursor = canvas.getCursor(0);
+    expect(canvas._computePressure(90, cursor)).toBeCloseTo(1.0, 5);
   });
 
   test('T033: _computePressure(γ=-45) same as γ=45 (symmetric)', () => {
     const canvas = createCanvasWithPressure({ pressureSmoothing: 1.0, pressureCurve: 'linear' });
-    const pos = canvas._computePressure(45);
-    const neg = canvas._computePressure(-45);
+    const cursor = canvas.getCursor(0);
+    const pos = canvas._computePressure(45, cursor);
+    const neg = canvas._computePressure(-45, cursor);
     expect(Math.abs(pos - neg)).toBeLessThan(0.001);
   });
 
   test('T034: _computePressure(γ=100) clamps to 1.0', () => {
     const canvas = createCanvasWithPressure({ pressureSmoothing: 1.0 });
-    expect(canvas._computePressure(100)).toBe(1.0);
+    const cursor = canvas.getCursor(0);
+    expect(canvas._computePressure(100, cursor)).toBe(1.0);
   });
 
   test('T035: pressure=0 → size=5, pressure=1 → size=80', () => {
@@ -455,13 +460,12 @@ describe('BrushCanvas — Phase 1: Pressure Pipeline', () => {
 
   test('T037: EMA smoothing converges to steady state', () => {
     const canvas = createCanvasWithPressure({ pressureSmoothing: 0.2, pressureCurve: 'linear', deadZoneGamma: 0 });
-    // First call: _smoothGamma = 0 * 0.8 + 0.5 * 0.2 = 0.1
-    const first = canvas._computePressure(45);
-    // Second call: 0.1 * 0.8 + 0.5 * 0.2 = 0.18
-    const second = canvas._computePressure(45);
-    // After many calls, should approach 0.5
-    for (let i = 0; i < 50; i++) canvas._computePressure(45);
-    const steady = canvas._computePressure(45);
+    const cursor = canvas.getCursor(0);
+    // The _computePressure method now requires a cursor parameter for per-cursor state
+    const first = canvas._computePressure(45, cursor);
+    const second = canvas._computePressure(45, cursor);
+    for (let i = 0; i < 50; i++) canvas._computePressure(45, cursor);
+    const steady = canvas._computePressure(45, cursor);
     expect(steady).toBeGreaterThan(0.48);
     expect(steady).toBeLessThan(0.52);
   });
@@ -514,19 +518,22 @@ describe('BrushCanvas — Phase 1: Pressure Pipeline', () => {
 
   test('T041: γ < deadZoneGamma returns 0 (dead zone)', () => {
     const canvas = createCanvasWithPressure({ pressureSmoothing: 1.0, deadZoneGamma: 5 });
-    expect(canvas._computePressure(4)).toBe(0);
-    expect(canvas._computePressure(-4)).toBe(0);
+    const cursor = canvas.getCursor(0);
+    expect(canvas._computePressure(4, cursor)).toBe(0);
+    expect(canvas._computePressure(-4, cursor)).toBe(0);
   });
 
   test('T042: curve=linear produces proportional mapping', () => {
     const canvas = createCanvasWithPressure({ pressureSmoothing: 1.0, pressureCurve: 'linear', deadZoneGamma: 0 });
-    const p1 = canvas._computePressure(45);
+    const cursor = canvas.getCursor(0);
+    const p1 = canvas._computePressure(45, cursor);
     expect(p1).toBeCloseTo(0.5, 1);
   });
 
   test('T043: curve=aggressive produces faster ramp-up', () => {
     const canvas = createCanvasWithPressure({ pressureSmoothing: 1.0, pressureCurve: 'aggressive', deadZoneGamma: 0 });
-    const p = canvas._computePressure(45);
+    const cursor = canvas.getCursor(0);
+    const p = canvas._computePressure(45, cursor);
     // aggressive uses exponent 0.7: 0.5^0.7 ≈ 0.615
     expect(p).toBeGreaterThan(0.55);
     expect(p).toBeLessThan(0.70);
@@ -820,5 +827,45 @@ describe('BrushCanvas — Phase 9: Pen Up/Down Toggle', () => {
     const config = { ...mockConfig };
     const canvas = new BrushCanvas(config, createMockGraphics());
     expect(canvas.faceDownThreshold).toBeUndefined();
+  });
+
+  test('T066: Two cursors have independent calibration and smoothing', () => {
+    const config = { canvasWidth: 800, canvasHeight: 600, maxDevices: 30 };
+    const mockPg = { push: () => {}, pop: () => {}, ellipse: () => {}, fill: () => {}, noStroke: () => {}, stroke: () => {}, strokeWeight: () => {}, beginShape: () => {}, endShape: () => {}, vertex: () => {}, noFill: () => {}, color: () => ({}) };
+    const { BrushCanvas } = require('../../p5-sketch/brush-canvas.js');
+    const canvas = new BrushCanvas(config, mockPg);
+
+    // Create two cursors
+    canvas.createCursor(0, 'classic');
+    canvas.createCursor(1, 'classic');
+    const c0 = canvas.getCursor(0);
+    const c1 = canvas.getCursor(1);
+
+    // Each cursor starts uncalibrated
+    expect(c0._calibrated).toBe(false);
+    expect(c1._calibrated).toBe(false);
+
+    // Update cursor 0 — calibrates to its first reading
+    canvas.updateCursor(0, {
+      orientation: { a: 180, b: 0, g: 0 },
+      accel: { x: 0, y: 0, z: 0 },
+      gyro: { a: 0, b: 0, g: 0 }
+    });
+    expect(c0._calibrated).toBe(true);
+    expect(c1._calibrated).toBe(false); // cursor 1 is NOT affected
+
+    // Update cursor 1 — calibrates independently
+    canvas.updateCursor(1, {
+      orientation: { a: 90, b: 45, g: 0 },
+      accel: { x: 0, y: 0, z: 0 },
+      gyro: { a: 0, b: 0, g: 0 }
+    });
+    expect(c1._calibrated).toBe(true);
+    expect(c0._centerAlpha).not.toBe(c1._centerAlpha); // different calibrations
+    expect(c0._centerBeta).not.toBe(c1._centerBeta);
+
+    // Smoothing state is independent
+    expect(c0._smoothNormX).not.toBeUndefined();
+    expect(c1._smoothNormX).not.toBeUndefined();
   });
 });

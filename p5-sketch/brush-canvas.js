@@ -77,6 +77,17 @@
       // Disconnect fade: smooth removal instead of instant vanish
       this.disconnecting = false;
       this.disconnectFadeStart = 0;
+
+      // ===== Per-cursor state (previously shared on BrushCanvas — DO NOT SHARE) =====
+      // Auto-calibration for sensor-to-canvas mapping
+      this._calibrated = false;
+      this._centerAlpha = 0;
+      this._centerBeta = 0;
+      // Normalized EMA smoothing state
+      this._smoothNormX = 0;
+      this._smoothNormY = 0;
+      // Pressure EMA smoothing state
+      this._smoothGamma = 0;
     }
   }
 
@@ -116,21 +127,14 @@
       this.pressureCurve = config.pressureCurve || 'natural';
       this.pressureSmoothing = config.pressureSmoothing || 0.2;
       this.deadZoneGamma = config.deadZoneGamma || 5;
-      this._smoothGamma = 0;
 
       // Phase 2: Smooth Traces & Dead Zones
       this.deadZonePosition = config.deadZonePosition || 3;
 
       // Phase 6: Auto-calibration for sensor-to-canvas mapping
-      this._calibrated = false;
-      this._centerAlpha = 0;
-      this._centerBeta = 0;
-      this._smoothNormX = 0;
-      this._smoothNormY = 0;
       this._smoothFactor = 0.4;
       this._maxTiltDeg = 90;
       this._sensitivityExponent = 2.0;
-
 
     }
 
@@ -212,10 +216,10 @@
       const alpha = orient.a !== undefined ? orient.a : 180;
       const beta = orient.b !== undefined ? orient.b : 0;
 
-      let deltaAlpha = alpha - this._centerAlpha;
+      let deltaAlpha = alpha - cursor._centerAlpha;
       if (deltaAlpha > 180) deltaAlpha -= 360;
       if (deltaAlpha < -180) deltaAlpha += 360;
-      let deltaBeta = beta - this._centerBeta;
+      let deltaBeta = beta - cursor._centerBeta;
 
       const DEAD_ZONE_DEG = this.deadZonePosition !== undefined ? this.deadZonePosition : 3;
       const isInDeadZone = Math.abs(deltaAlpha) < DEAD_ZONE_DEG && Math.abs(deltaBeta) < DEAD_ZONE_DEG;
@@ -407,21 +411,21 @@
       const beta = orient.b !== undefined ? orient.b : 0;
 
       // Auto-calibrate on first reading
-      if (!this._calibrated) {
-        this._centerAlpha = alpha;
-        this._centerBeta = beta;
-        this._calibrated = true;
-        this._smoothNormX = 0;
-        this._smoothNormY = 0;
+      if (!cursor._calibrated) {
+        cursor._centerAlpha = alpha;
+        cursor._centerBeta = beta;
+        cursor._calibrated = true;
+        cursor._smoothNormX = 0;
+        cursor._smoothNormY = 0;
         return { x: this.width / 2, y: this.height / 2 };
       }
 
       // Deviation from center (handle wraparound for alpha 0-360)
-      let deltaAlpha = alpha - this._centerAlpha;
+      let deltaAlpha = alpha - cursor._centerAlpha;
       if (deltaAlpha > 180) deltaAlpha -= 360;
       if (deltaAlpha < -180) deltaAlpha += 360;
 
-      let deltaBeta = beta - this._centerBeta;
+      let deltaBeta = beta - cursor._centerBeta;
 
       // Normalize to -1..+1
       let normX = Math.max(-1, Math.min(1, deltaAlpha / this._maxTiltDeg));
@@ -443,12 +447,12 @@
       }
 
       // Apply EMA smoothing with adaptive coefficient
-      this._smoothNormX = this._smoothNormX * (1 - smoothCoeff) + normX * smoothCoeff;
-      this._smoothNormY = this._smoothNormY * (1 - smoothCoeff) + normY * smoothCoeff;
+      cursor._smoothNormX = cursor._smoothNormX * (1 - smoothCoeff) + normX * smoothCoeff;
+      cursor._smoothNormY = cursor._smoothNormY * (1 - smoothCoeff) + normY * smoothCoeff;
 
       // Apply sensitivity curve (fine control near center)
-      const curvedX = Math.sign(this._smoothNormX) * Math.pow(Math.abs(this._smoothNormX), this._sensitivityExponent);
-      const curvedY = Math.sign(this._smoothNormY) * Math.pow(Math.abs(this._smoothNormY), this._sensitivityExponent);
+      const curvedX = Math.sign(cursor._smoothNormX) * Math.pow(Math.abs(cursor._smoothNormX), this._sensitivityExponent);
+      const curvedY = Math.sign(cursor._smoothNormY) * Math.pow(Math.abs(cursor._smoothNormY), this._sensitivityExponent);
 
       // Map to canvas with inversion fix
       const margin = 40;
@@ -476,15 +480,15 @@
      * @param {number} rawGamma - Raw orientation.gamma in degrees
      * @returns {number} Pressure value 0.0-1.0
      */
-    _computePressure(rawGamma) {
+    _computePressure(rawGamma, cursor) {
       if (Math.abs(rawGamma) < this.deadZoneGamma) return 0;
 
       const normalized = Math.min(1, Math.abs(rawGamma) / 90);
 
-      this._smoothGamma = this._smoothGamma * (1 - this.pressureSmoothing) + normalized * this.pressureSmoothing;
+      cursor._smoothGamma = cursor._smoothGamma * (1 - this.pressureSmoothing) + normalized * this.pressureSmoothing;
 
       const exponent = this._getPressureExponent(this.pressureCurve);
-      const pressure = Math.pow(this._smoothGamma, exponent);
+      const pressure = Math.pow(cursor._smoothGamma, exponent);
 
       return Math.min(1, Math.max(0, pressure));
     }
@@ -531,7 +535,7 @@
 
       // Pressure → brushSize + opacity (Phase 1)
       const gamma = (sd.orientation && sd.orientation.g !== undefined) ? sd.orientation.g : 0;
-      const newPressure = this._computePressure(gamma);
+      const newPressure = this._computePressure(gamma, cursor);
 
       // Phase 2: Pressure delta limiter — prevent sudden pressure jumps
       const MAX_PRESSURE_DELTA = this.config.pressureDeltaMax !== undefined ? this.config.pressureDeltaMax : 0.1;
