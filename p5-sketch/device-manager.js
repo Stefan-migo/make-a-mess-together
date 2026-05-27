@@ -191,8 +191,15 @@
         cursor.brushType = config.brush;
       }
       if (config.color) {
-        if (config.color.h !== undefined) cursor.color.h = config.color.h;
-        if (config.color.s !== undefined) cursor.color.s = config.color.s;
+        if (config.color.h !== undefined) {
+          cursor._baseHue = config.color.h;
+          cursor._hueOffset = 0;
+          cursor.color.h = config.color.h;
+        }
+        if (config.color.s !== undefined) {
+          cursor._baseSaturation = config.color.s;
+          cursor.color.s = config.color.s;
+        }
         if (config.color.b !== undefined) cursor.color.b = config.color.b;
         cursor.color.a = 1;
       }

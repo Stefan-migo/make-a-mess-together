@@ -487,9 +487,10 @@ describe('BrushCanvas — Phase 1: Pressure Pipeline', () => {
     expect(cursor.opacity).toBeCloseTo(0.3, 1);
   });
 
-  test('T039: accel.x still modulates hue shift (no regression)', () => {
+  test('T039: accel.x still modulates hue shift relative to base (no regression)', () => {
     const canvas = createCanvasWithPressure({ pressureSmoothing: 1.0, deadZoneGamma: 5 });
     const cursor = canvas.getCursor(0);
+    cursor._baseHue = 100;
     cursor.color.h = 100;
 
     canvas._modulateFromSensor(cursor, {
@@ -498,7 +499,7 @@ describe('BrushCanvas — Phase 1: Pressure Pipeline', () => {
       orientation: { a: 180, b: 0, g: 0 }
     });
     // accel.x=10 → hueShift = mapAndConstrain(10, -20, 20, -60, 60) = 30
-    // 100 + 30 * 0.1 = 103
+    // baseHue(100) + offset(30*0.1) = 103
     expect(cursor.color.h).toBeCloseTo(103, 0);
   });
 
@@ -867,5 +868,71 @@ describe('BrushCanvas — Phase 9: Pen Up/Down Toggle', () => {
     // Smoothing state is independent
     expect(c0._smoothNormX).not.toBeUndefined();
     expect(c1._smoothNormX).not.toBeUndefined();
+  });
+});
+
+describe('BrushCanvas — Phase 10: Sensor Modulation Isolation (Base+Offset)', () => {
+
+  test('T067: color modulation is relative to base hue, not cumulative', () => {
+    const config = { canvasWidth: 800, canvasHeight: 600, maxDevices: 30, canvasFadeRate: 0.005, canvasFadeInterval: 60 };
+    const mockPg = createMockGraphics();
+    const { BrushCanvas } = require('../../p5-sketch/brush-canvas.js');
+    const canvas = new BrushCanvas(config, mockPg);
+    canvas.createCursor(0, 'classic');
+    const cursor = canvas.getCursor(0);
+
+    cursor._baseHue = 200;
+
+    canvas._modulateFromSensor(cursor, {
+      accel: { x: 10, y: 0, z: 0 },
+      gyro: { a: 0, b: 0, g: 0 },
+      orientation: { a: 180, b: 0, g: 0 }
+    });
+
+    expect(cursor.color.h).toBeGreaterThan(190);
+    expect(cursor.color.h).toBeLessThan(210);
+
+    for (let i = 0; i < 10; i++) {
+      canvas._modulateFromSensor(cursor, {
+        accel: { x: 10, y: 0, z: 0 },
+        gyro: { a: 0, b: 0, g: 0 },
+        orientation: { a: 180, b: 0, g: 0 }
+      });
+    }
+
+    expect(cursor.color.h).toBeGreaterThan(180);
+    expect(cursor.color.h).toBeLessThan(260);
+    expect(cursor._baseHue).toBe(200);
+  });
+
+  test('T068: updateConfig sets _baseHue and resets _hueOffset', () => {
+    const { DeviceManager } = require('../../p5-sketch/device-manager.js');
+    const mockEngine = { createVoice: () => ({}), disposeVoice: () => {} };
+    const config = { slots: [{ soundType: 'synthBasic', sensorMap: {}, color: { h: 0, s: 80, b: 90 } }] };
+    const mockConfig = { canvasWidth: 800, canvasHeight: 600, maxDevices: 30 };
+    const mockPg = createMockGraphics();
+    const { BrushCanvas } = require('../../p5-sketch/brush-canvas.js');
+    const brushCanvas = new BrushCanvas(mockConfig, mockPg);
+    brushCanvas.createCursor(0, 'classic', { h: 0, s: 80, b: 90 });
+    const dm = new DeviceManager(mockEngine, config, brushCanvas);
+    dm.assign(0);
+    const cursor = brushCanvas.getCursor(0);
+
+    cursor._hueOffset = 45;
+
+    dm.updateConfig(0, { color: { h: 120, s: 80, b: 90 } });
+
+    expect(cursor._baseHue).toBe(120);
+    expect(cursor._hueOffset).toBe(0);
+    expect(cursor.color.h).toBe(120);
+  });
+
+  test('T069: createCursor initializes _baseHue from config color', () => {
+    const config = { canvasWidth: 800, canvasHeight: 600, maxDevices: 30, canvasFadeRate: 0.005, canvasFadeInterval: 60 };
+    const mockPg = createMockGraphics();
+    const { BrushCanvas } = require('../../p5-sketch/brush-canvas.js');
+    const canvas = new BrushCanvas(config, mockPg);
+    const cursor = canvas.createCursor(0, 'classic', { h: 180, s: 80, b: 90 });
+    expect(cursor._baseHue).toBe(180);
   });
 });

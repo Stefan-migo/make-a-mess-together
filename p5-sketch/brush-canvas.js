@@ -78,6 +78,11 @@
       this.disconnecting = false;
       this.disconnectFadeStart = 0;
 
+      // Base+offset for sensor-modulated color (user selection is preserved)
+      this._baseHue = 0;
+      this._hueOffset = 0;
+      this._baseSaturation = 80;
+
       // ===== Per-cursor state (previously shared on BrushCanvas — DO NOT SHARE) =====
       // Auto-calibration for sensor-to-canvas mapping
       this._calibrated = false;
@@ -174,6 +179,8 @@
       const cursor = new BrushCursor(slot, brushType);
       if (color) {
         cursor.color = { ...color, a: 1 };
+        cursor._baseHue = color.h || 0;
+        if (color.s !== undefined) cursor._baseSaturation = color.s;
       }
       this.cursors[slot] = cursor;
       return cursor;
@@ -514,9 +521,12 @@
       const accel = sd.accel || {};
       const gyro = sd.gyro || {};
 
-      // Accel X: hue shift (0-360)
+      // Accel X: hue shift relative to user-selected base (0-360)
       const hueShift = accel.x !== undefined ? mapAndConstrain(accel.x, -20, 20, -60, 60) : 0;
-      cursor.color.h = ((cursor.color.h + hueShift * 0.1) % 360 + 360) % 360;
+      cursor._hueOffset += hueShift * 0.1;
+      if (cursor._hueOffset > 360) cursor._hueOffset -= 360;
+      if (cursor._hueOffset < -360) cursor._hueOffset += 360;
+      cursor.color.h = ((cursor._baseHue + cursor._hueOffset) % 360 + 360) % 360;
 
       // Gyro α (alpha): scatter (0-40)
       if (gyro.a !== undefined) {
@@ -528,9 +538,10 @@
         cursor.angle = gyro.b * 0.01; // subtle rotation
       }
 
-      // Gyro γ (gamma): saturation (20-100)
-      if (gyro.g !== undefined) {
-        cursor.color.s = mapAndConstrain(Math.abs(gyro.g), 0, 500, 20, 100);
+      // Gyro γ (gamma): saturation (20-100) — relative to user base
+      if (gyro.g !== undefined && cursor._baseSaturation !== undefined) {
+        const satOffset = mapAndConstrain(Math.abs(gyro.g), 0, 500, -30, 30);
+        cursor.color.s = Math.max(20, Math.min(100, cursor._baseSaturation + satOffset));
       }
 
       // Pressure → brushSize + opacity (Phase 1)
