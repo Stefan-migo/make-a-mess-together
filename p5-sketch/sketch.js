@@ -3,7 +3,7 @@ let brushCanvas;
 let deviceCount = 0;
 let connected = false;
 let statusMessage = 'Disconnected';
-let sprayBrushImg;
+var sprayBrushImg;
 
 function preload() {
   sprayBrushImg = loadImage('spray-brush.png');
