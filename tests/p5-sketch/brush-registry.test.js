@@ -1,5 +1,5 @@
 /**
- * Tests for Brush Registry — 34 Brush Types
+ * Tests for Brush Registry — 35 Brush Types
  * 
  * Phase 2 of the Shared Canvas Brush System.
  * TDD: These tests MUST fail before implementation (RED),
@@ -60,19 +60,20 @@ function createMockGraphics() {
 
 const { BRUSH_REGISTRY, registerBrush, drawBrush, getBrushNames, getBrushCount } = require('../../p5-sketch/brush-registry.js');
 
-describe('Brush Registry — 34 Types', () => {
+describe('Brush Registry — 35 Types', () => {
 
-  test('T005: BRUSH_REGISTRY contains 34 entries', () => {
+  test('T005: BRUSH_REGISTRY contains 35 entries', () => {
     const names = getBrushNames();
-    expect(names.length).toBe(34);
-    // Verify all 34 expected brush names
+    expect(names.length).toBe(35);
+    // Verify all 35 expected brush names
     const expected = [
       'classic', 'blade', 'dotted', 'stamped', 'velocity', 'dash',
       'sketchy', 'watercolor', 'spray', 'chalk', 'smoke', 'furry',
       'neon', 'plasma', 'vortex', 'bead', 'bubble', 'star',
       'quantum', 'aurora', 'geometric', 'pixel', 'shattered', 'web',
       'abstract', 'trail', 'isometric', 'triangulate',
-      'mirror-h', 'mirror-v', 'mirror-quad', 'mirror-tri', 'mirror-hex', 'mirror-twelve'
+      'mirror-h', 'mirror-v', 'mirror-quad', 'mirror-tri', 'mirror-hex', 'mirror-twelve',
+      'spray-paint'
     ];
     expected.forEach(name => {
       expect(names).toContain(name);
@@ -86,7 +87,7 @@ describe('Brush Registry — 34 Types', () => {
     
     // Verify it was added
     expect(getBrushNames()).toContain('test-brush');
-    expect(getBrushCount()).toBe(35); // 34 + 1 test
+    expect(getBrushCount()).toBe(36); // 35 + 1 test
     
     // Verify it can be called
     const result = drawBrush('test-brush', mockPg, 0, 0, 10, 10, { r: 255, g: 0, b: 0 }, 10, { alpha: 255 });
@@ -100,7 +101,7 @@ describe('Brush Registry — 34 Types', () => {
     expect(result).toBe(false);
   });
 
-  test('T008: All 34 brush types execute without throwing', () => {
+  test('T008: All 35 brush types execute without throwing', () => {
     const mockPg = createMockGraphics();
     const color = { r: 100, g: 50, b: 200 };
     const opts = { alpha: 200, scatter: 5, angle: 0, frameCount: 100, state: {} };
@@ -114,7 +115,7 @@ describe('Brush Registry — 34 Types', () => {
       }).not.toThrow();
     });
 
-    // All 34 original brushes should be here
-    expect(brushNames.length).toBe(34);
+    // All 35 original brushes should be here
+    expect(brushNames.length).toBe(35);
   });
 });
