@@ -1,6 +1,6 @@
 global.Tone = {
   Gain: class {
-    constructor(v) { this.gain = { value: v || 1 }; this._connections = []; }
+    constructor(v) { this.gain = { value: v || 1, rampTo: (val, dur) => { this.gain.value = val; } }; this._connections = []; }
     connect(n) { this._connections.push(n); return n; }
     dispose() { this._connections = []; }
     toDestination() { return this; }
@@ -211,6 +211,64 @@ describe('DeviceManager', () => {
     const count1 = dm.activeCount;
     dm.assign(0);
     expect(dm.activeCount).toBe(count1);
+  });
+
+  test('assign same slot twice does NOT overwrite cursor penDown state', () => {
+    const { BrushCanvas } = require('../../p5-sketch/brush-canvas.js');
+    const mockPg = { push: () => {}, pop: () => {}, ellipse: () => {}, fill: () => {}, noStroke: () => {}, stroke: () => {}, strokeWeight: () => {}, beginShape: () => {}, endShape: () => {}, vertex: () => {}, noFill: () => {}, color: () => ({}) };
+    const bc = new BrushCanvas({
+      maxDevices: 30, centerX: 400, centerY: 300, baseRadius: 200,
+      slots: new Array(30).fill({ soundType: 'synthBasic', sensorMap: {}, color: { h: 0, s: 80, b: 90 }, brushType: 'classic' })
+    }, mockPg);
+    const config = { slots: [{ soundType: 'synthBasic', sensorMap: {} }] };
+    const { DeviceManager } = require('../../p5-sketch/device-manager.js');
+    const dm2 = new DeviceManager({ createVoice: () => ({}), disposeVoice: () => {} }, config, bc);
+
+    dm2.assign(0);
+    const cursor = bc.getCursor(0);
+    cursor.penDown = false;
+
+    dm2.assign(0);
+    expect(bc.getCursor(0).penDown).toBe(false);
+  });
+
+  test('_processVoice mutes voice gain when penDown is false', () => {
+    const bus = new (require('../../p5-sketch/audio-bus.js').AudioBus)();
+    const engine = new (require('../../p5-sketch/sound-engine.js').SoundEngine)(bus);
+    const bc = new (require('../../p5-sketch/brush-canvas.js').BrushCanvas)(testConfig, {});
+    const dm2 = new (require('../../p5-sketch/device-manager.js').DeviceManager)(engine, testConfig, bc);
+
+    dm2.assign(0);
+    const voice = dm2._voices[0];
+    expect(voice.nodes.gain.gain.value).toBe(1);
+
+    const cursor = bc.getCursor(0);
+    cursor.penDown = false;
+    dm2.processAllVoices();
+
+    expect(voice.nodes.gain.gain.value).toBe(0);
+    dm2.disposeAll();
+  });
+
+  test('_processVoice un-mutes voice gain when penDown is true', () => {
+    const bus = new (require('../../p5-sketch/audio-bus.js').AudioBus)();
+    const engine = new (require('../../p5-sketch/sound-engine.js').SoundEngine)(bus);
+    const bc = new (require('../../p5-sketch/brush-canvas.js').BrushCanvas)(testConfig, {});
+    const dm2 = new (require('../../p5-sketch/device-manager.js').DeviceManager)(engine, testConfig, bc);
+
+    dm2.assign(0);
+    const voice = dm2._voices[0];
+    const cursor = bc.getCursor(0);
+
+    cursor.penDown = false;
+    dm2.processAllVoices();
+    expect(voice.nodes.gain.gain.value).toBe(0);
+
+    cursor.penDown = true;
+    dm2.processAllVoices();
+    expect(voice.nodes.gain.gain.value).toBe(1);
+
+    dm2.disposeAll();
   });
 
   test('drawHUD does not throw', () => {

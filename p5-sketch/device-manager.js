@@ -16,6 +16,10 @@
     }
 
     assign(slot) {
+      // Guard: skip if slot already has a cursor (prevents state broadcast from overwriting pen state)
+      if (this._brushCanvas && this._brushCanvas.getCursor(slot)) {
+        return;
+      }
       if (this._voices[slot]) {
         this._engine.disposeVoice(this._voices[slot]);
         delete this._voices[slot];
@@ -102,6 +106,22 @@
     _processVoice(slot) {
       const voice = this._voices[slot];
       if (!voice) return;
+
+      // Pen state-based voice mute
+      const cursor = this._brushCanvas?.getCursor(slot);
+      if (cursor) {
+        const gain = voice.nodes?.gain;
+        if (!cursor.penDown) {
+          if (gain && gain.gain.value !== 0) {
+            gain.gain.rampTo(0, 0.05);
+          }
+          return;
+        } else {
+          if (gain && gain.gain.value === 0) {
+            gain.gain.rampTo(1, 0.1);
+          }
+        }
+      }
 
       const slotConfig = this._config.slots[slot];
       if (!slotConfig) return;

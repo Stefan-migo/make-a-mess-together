@@ -386,6 +386,9 @@
 
     // Start sensor send loop
     startSensorLoop();
+
+    // Re-send current config (pen state, brush, color, etc.) so p5 gets correct state
+    saveAndSendConfig();
   }
 
   // =========================================================================

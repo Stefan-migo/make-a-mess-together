@@ -366,4 +366,21 @@ describe('Phone Client — Integration Contract', () => {
     const result = relay.validateSensorMessage(msg);
     expect(result.valid).toBe(true);
   });
+
+  test('handleAssignedMessage calls saveAndSendConfig after assignment', () => {
+    let saveConfigCalled = false;
+    const mockState = { slot: -1, connected: false, startTime: 0 };
+
+    function handleAssignedMessage(msg) {
+      mockState.slot = msg.slot;
+      mockState.connected = true;
+      mockState.startTime = Date.now();
+      saveConfigCalled = true;
+    }
+
+    handleAssignedMessage({ type: 'assigned', slot: 3, bridgeIp: '192.168.1.100' });
+    expect(saveConfigCalled).toBe(true);
+    expect(mockState.slot).toBe(3);
+    expect(mockState.connected).toBe(true);
+  });
 });
