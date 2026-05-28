@@ -20,24 +20,26 @@ npm install                        # installs @julusian/midi
 
 ### Run the bridge with MIDI
 
+The bridge automatically connects to REAPER via PipeWire (`pw-link`) — no extra setup needed.
+
 ```bash
 # Chaos mode (default) — raw sensor-to-MIDI, no music theory
-node index.js --midi
+node server-bridge/index.js --midi
 
 # Scale mode — quantized to a musical scale
-node index.js --midi --mode scale --scale pentatonic --key D
+node server-bridge/index.js --midi --mode scale --scale pentatonic --key D
 
 # Theremin — continuous pitch with accelMag gate
-node index.js --midi --mode theremin --scale whole-tone --key C
+node server-bridge/index.js --midi --mode theremin --scale whole-tone --key C
 
 # Chord — orientation picks chord degree + inversion
-node index.js --midi --mode chord --key Am
+node server-bridge/index.js --midi --mode chord --key Am
 
 # Arpeggiator — BPM-synced note sequencer
-node index.js --midi --mode arp --scale blues --key A --bpm 140
+node server-bridge/index.js --midi --mode arp --scale blues --key A --bpm 140
 
 # All together: MIDI + OSC + WebSocket
-node index.js --daw 127.0.0.1:9000 --midi --mode scale --scale pentatonic --key D
+node server-bridge/index.js --daw 127.0.0.1:9000 --midi --mode scale --scale pentatonic --key D
 ```
 
 ### Start the dashboard
@@ -174,6 +176,20 @@ npm install @julusian/midi
 
 ### Multiple bridges on same machine
 Only one instance can use the "phone-sensor-orchestra" port name. Run a single bridge with both MIDI and OSC.
+
+### MIDI not reaching REAPER (PipeWire)
+The bridge automatically runs `pw-link` to connect its virtual MIDI port to REAPER. If MIDI doesn't reach REAPER:
+
+1. Check REAPER is running before starting the bridge
+2. Verify the PipeWire port exists:
+   ```bash
+   pw-link -o | grep phone-sensor-orchestra
+   ```
+3. Manually connect:
+   ```bash
+   pw-link "Midi-Bridge:RtMidi Output Clientphone-sensor-orchestra (capture)" "REAPER:MIDI Input 1"
+   ```
+4. If `pw-link` is not installed: `sudo dnf install pipewire-jack-audio-connection-kit` (Fedora) or `sudo apt install pipewire` (Ubuntu)
 
 ---
 

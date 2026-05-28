@@ -95,4 +95,10 @@ describe('MIDI Bridge Integration', () => {
     bridge.midiSender.close();
     expect(mockMidiSenderInstance.close).toHaveBeenCalled();
   });
+
+  test('T043: bridge exposes _connectMidiToReaper when MIDI active', () => {
+    bridge = createBridge({ midi: true });
+    expect(typeof bridge._connectMidiToReaper).toBe('function');
+    expect(() => bridge._connectMidiToReaper()).not.toThrow();
+  });
 });

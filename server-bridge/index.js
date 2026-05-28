@@ -4,6 +4,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { exec } = require('child_process');
 const { WebSocketServer } = require('ws');
 const { SlotAllocator } = require('./slot-allocator');
 const { MessageRelay } = require('./message-relay');
@@ -91,11 +92,32 @@ function createBridge(options = {}) {
     if (options.midiKey) midiMapper.setGlobalConfig({ key: options.midiKey });
     if (options.midiOctave !== undefined) midiMapper.setGlobalConfig({ octave: options.midiOctave });
     if (options.midiChaosAmount !== undefined) midiMapper.setGlobalConfig({ chaosAmount: options.midiChaosAmount });
+
+    _connectMidiToReaper();
   }
 
   // -----------------------------------------------------------------------
   // Internal helpers
   // -----------------------------------------------------------------------
+
+  function _connectMidiToReaper() {
+    exec('which pw-link', (err) => {
+      if (err) {
+        console.log('[MIDI] pw-link not found — skip automatic connection');
+        return;
+      }
+      const source = 'Midi-Bridge:RtMidi Output Clientphone-sensor-orchestra (capture)';
+      const target = 'REAPER:MIDI Input 1';
+      exec(`pw-link "${source}" "${target}"`, (linkErr) => {
+        if (linkErr) {
+          const msg = linkErr.message.split('\n')[0].trim();
+          console.log(`[MIDI] pw-link: ${msg}`);
+          return;
+        }
+        console.log('[MIDI] Connected to REAPER via pw-link');
+      });
+    });
+  }
 
   function broadcastToPlayers(msg, exclude = null) {
     const data = JSON.stringify(msg);
@@ -349,6 +371,7 @@ function createBridge(options = {}) {
         midiSender = new MidiSender();
         midiMapper = new MidiMapper();
         console.log('[midiConfig] MIDI activated on-the-fly via dashboard');
+        _connectMidiToReaper();
       } catch (e) {
         console.error('[midiConfig] Failed to activate MIDI:', e.message);
         try { ws.send(JSON.stringify({ type: 'system', event: 'midiStatus', active: false, error: e.message })); } catch (_) {}
@@ -559,7 +582,8 @@ function createBridge(options = {}) {
     _handleConfigMessage: handleConfigMessage,
     _handlePlayerConnect: handlePlayerConnect,
     _handleMidiConfigMessage: handleMidiConfigMessage,
-    _handleDisconnect: handleDisconnect
+    _handleDisconnect: handleDisconnect,
+    _connectMidiToReaper
   };
 }
 
