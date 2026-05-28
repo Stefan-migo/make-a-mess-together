@@ -187,6 +187,28 @@ Wormhole, Ripple, Fractal, DNA, Gravity, Kaleido, Spores, PixelSort, Echo, Void
 
 ---
 
+## MIDI Output
+
+The bridge can send MIDI notes + continuous controller data to any DAW via ALSA virtual ports.
+
+```bash
+cd server-bridge
+node index.js --midi
+```
+
+Five performance modes:
+- **Chaos** — raw sensor-to-MIDI, no music theory
+- **Scale** — quantized to musical scale (13 scales, 17 keys)
+- **Theremin** — continuous pitch bend with shake gate
+- **Chord** — diatonic chord voicings with inversions + extensions
+- **Arp** — BPM-synced arpeggiator with 5 patterns
+
+See [docs/MIDI-SETUP.md](docs/MIDI-SETUP.md) for full guide.
+
+Live dashboard at `http://<bridge-ip>:8080/dashboard` for real-time mode switching.
+
+---
+
 ## License
 
 MIT License — feel free to use, modify, and make a mess.
