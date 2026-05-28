@@ -1,6 +1,7 @@
 let dm, ws, audioBus, started = false;
 let brushCanvas;
 let deviceCount = 0;
+let p5Muted = false;
 let connected = false;
 let statusMessage = 'Disconnected';
 var sprayBrushImg;
@@ -82,6 +83,7 @@ function mousePressed() {
       Tone.context.rawContext.latencyHint = 'playback';
     }
     Tone.start();
+    if (p5Muted) Tone.Destination.mute = true;
     started = true;
     const overlay = document.getElementById('start-overlay');
     if (overlay) {
@@ -155,6 +157,12 @@ function handleMessage(msg) {
           if (msg.deviceCount !== undefined) deviceCount = msg.deviceCount;
           break;
         case 'hello':
+          break;
+        case 'mute':
+          p5Muted = msg.value;
+          if (typeof Tone !== 'undefined' && Tone.context) {
+            Tone.Destination.mute = p5Muted;
+          }
           break;
       }
       break;

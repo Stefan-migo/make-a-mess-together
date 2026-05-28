@@ -8,6 +8,8 @@ const { WebSocketServer } = require('ws');
 const { SlotAllocator } = require('./slot-allocator');
 const { MessageRelay } = require('./message-relay');
 const { OscSender } = require('./osc-sender');
+const { MidiSender } = require('./midi-sender');
+const { MidiMapper } = require('./midi-mapper');
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -41,6 +43,17 @@ function parseDawArg() {
   return val;
 }
 
+function parseMidiArg() {
+  return process.argv.indexOf('--midi') !== -1;
+}
+
+function parseMidiOption(name, defaultValue) {
+  const idx = process.argv.indexOf(name);
+  if (idx === -1) return defaultValue;
+  const val = process.argv[idx + 1];
+  return val || defaultValue;
+}
+
 // ---------------------------------------------------------------------------
 // Bridge Factory
 // ---------------------------------------------------------------------------
@@ -61,6 +74,23 @@ function createBridge(options = {}) {
     const [host, portStr] = String(options.daw).split(':');
     const port = parseInt(portStr, 10) || 9000;
     oscSender = new OscSender(host, port);
+  }
+
+  // -----------------------------------------------------------------------
+  // MidiSender (MIDI integration)
+  // -----------------------------------------------------------------------
+
+  let midiSender = null;
+  let midiMapper = null;
+  if (options.midi) {
+    midiSender = new MidiSender();
+    midiMapper = new MidiMapper();
+
+    if (options.midiMode) midiMapper.setGlobalConfig({ mode: options.midiMode });
+    if (options.midiScale) midiMapper.setGlobalConfig({ scale: options.midiScale });
+    if (options.midiKey) midiMapper.setGlobalConfig({ key: options.midiKey });
+    if (options.midiOctave !== undefined) midiMapper.setGlobalConfig({ octave: options.midiOctave });
+    if (options.midiChaosAmount !== undefined) midiMapper.setGlobalConfig({ chaosAmount: options.midiChaosAmount });
   }
 
   // -----------------------------------------------------------------------
@@ -110,6 +140,7 @@ function createBridge(options = {}) {
       event: 'state',
       deviceCount: allocator.activeCount,
       playerCount: players.size,
+      midiActive: midiSender !== null,
       devices
     });
   }
@@ -158,7 +189,9 @@ function createBridge(options = {}) {
     }
 
     let filePath;
-    if (pathname === '/phone-client') {
+    if (pathname === '/dashboard') {
+      filePath = path.join(__dirname, 'public', 'dashboard.html');
+    } else if (pathname === '/phone-client') {
       res.writeHead(302, { 'Location': '/phone-client/' });
       res.end();
       return;
@@ -276,6 +309,26 @@ function createBridge(options = {}) {
       oscSender.sendGyro(slot, msg.gyro.a, msg.gyro.b, msg.gyro.g);
       oscSender.sendOrientation(slot, msg.orientation.a, msg.orientation.b, msg.orientation.g);
     }
+
+    if (midiSender && midiMapper && msg.type === 'sensor') {
+      const events = midiMapper.processSensor(info.slot, msg);
+      for (const evt of events) {
+        switch (evt.type) {
+          case 'noteon':
+            midiSender.sendNoteOn(evt.channel, evt.note, evt.velocity);
+            break;
+          case 'noteoff':
+            midiSender.sendNoteOff(evt.channel, evt.note, evt.velocity);
+            break;
+          case 'cc':
+            midiSender.sendCC(evt.channel, evt.cc, evt.value);
+            break;
+          case 'pitchbend':
+            midiSender.sendPitchBend(evt.channel, evt.value);
+            break;
+        }
+      }
+    }
   }
 
   function handleConfigMessage(ws, info, msg) {
@@ -287,6 +340,53 @@ function createBridge(options = {}) {
     if (Object.keys(config).length === 0) return;
     broadcastToPlayers(relay.formatConfigMessage(info.slot, config));
     console.log(`[config] Slot ${info.slot}:`, JSON.stringify(config));
+  }
+
+  function handleMidiConfigMessage(ws, info, msg) {
+    // Enable MIDI on-the-fly from dashboard
+    if (msg.enableMidi === true && !midiSender) {
+      try {
+        midiSender = new MidiSender();
+        midiMapper = new MidiMapper();
+        console.log('[midiConfig] MIDI activated on-the-fly via dashboard');
+      } catch (e) {
+        console.error('[midiConfig] Failed to activate MIDI:', e.message);
+        try { ws.send(JSON.stringify({ type: 'system', event: 'midiStatus', active: false, error: e.message })); } catch (_) {}
+        return;
+      }
+    }
+
+    if (!midiMapper) {
+      try { ws.send(JSON.stringify({ type: 'system', event: 'midiStatus', active: false })); } catch (_) {}
+      return;
+    }
+
+    const config = {};
+    if (msg.mode && ['chaos', 'scale', 'theremin', 'chord', 'arp'].includes(msg.mode)) {
+      config.mode = msg.mode;
+    }
+    if (msg.scale) {
+      const validScales = ['chromatic', 'major', 'minor', 'pentatonic', 'blues', 'wholeTone', 'dorian', 'mixolydian', 'lydian', 'phrygian', 'locrian', 'augmented', 'diminished'];
+      if (validScales.includes(msg.scale)) config.scale = msg.scale;
+    }
+    if (msg.key && ['C','C#','Db','D','D#','Eb','E','F','F#','Gb','G','G#','Ab','A','A#','Bb','B'].includes(msg.key)) {
+      config.key = msg.key;
+    }
+    if (msg.octave !== undefined) config.octave = Math.min(Math.max(Math.round(msg.octave), 1), 7);
+    if (msg.bpm !== undefined) config.bpm = Math.min(Math.max(msg.bpm, 20), 300);
+    if (msg.chaosAmount !== undefined) config.chaosAmount = Math.min(Math.max(Number(msg.chaosAmount), 0), 1);
+    if (msg.noteThreshold !== undefined) config.noteThreshold = Math.min(Math.max(Math.round(msg.noteThreshold), 1), 127);
+
+    if (Object.keys(config).length > 0) {
+      midiMapper.setGlobalConfig(config);
+      const tag = msg.enableMidi ? 'Activated MIDI with config' : 'Updated';
+      console.log('[midiConfig]', tag + ':', JSON.stringify(config));
+    }
+
+    // Notify dashboard that MIDI is active with current config
+    try {
+      ws.send(JSON.stringify({ type: 'system', event: 'midiStatus', active: true }));
+    } catch (_) {}
   }
 
   function handleDisconnect(ws) {
@@ -303,6 +403,10 @@ function createBridge(options = {}) {
       if (oscSender) {
         oscSender.sendDisconnect(info.slot);
         oscSender.sendCount(allocator.activeCount);
+      }
+
+      if (midiSender && info.slot >= 0) {
+        midiSender.allNotesOff(info.slot & 0x0f);
       }
 
       console.log(`[disconnect] Slot ${info.slot} freed (device #${info.id})`);
@@ -366,6 +470,18 @@ function createBridge(options = {}) {
           handleSensorMessage(ws, connInfo, msg);
         } else if (msg.type === 'config') {
           handleConfigMessage(ws, connInfo, msg);
+        }
+      } else if (connInfo.role === 'player' && msg.type === 'midiConfig') {
+        handleMidiConfigMessage(ws, connInfo, msg);
+      } else if (connInfo.role === 'player' && msg.type === 'playerCommand') {
+        if (msg.action === 'mute') {
+          const value = !!msg.value;
+          broadcastToPlayers({
+            type: 'system',
+            event: 'mute',
+            value: value
+          });
+          console.log('[playerCommand] Mute ' + (value ? 'ON' : 'OFF') + ' (from dashboard)');
         }
       }
     });
@@ -431,6 +547,8 @@ function createBridge(options = {}) {
     httpServer,
     wss,
     oscSender,
+    get midiSender() { return midiSender; },
+    get midiMapper() { return midiMapper; },
     allocator,
     relay,
     connections,
@@ -440,6 +558,7 @@ function createBridge(options = {}) {
     _handleSensorMessage: handleSensorMessage,
     _handleConfigMessage: handleConfigMessage,
     _handlePlayerConnect: handlePlayerConnect,
+    _handleMidiConfigMessage: handleMidiConfigMessage,
     _handleDisconnect: handleDisconnect
   };
 }
@@ -450,7 +569,22 @@ function createBridge(options = {}) {
 
 if (require.main === module) {
   const dawArg = parseDawArg();
-  const bridge = createBridge({ daw: dawArg });
+  const midi = parseMidiArg();
+  const midiMode = parseMidiOption('--mode', 'chaos');
+  const midiScale = parseMidiOption('--scale', 'pentatonic');
+  const midiKey = parseMidiOption('--key', 'C');
+  const midiOctave = parseInt(parseMidiOption('--octave', '3'), 10);
+  const midiChaosAmount = parseFloat(parseMidiOption('--chaos-amount', '0.5'));
+
+  const bridge = createBridge({
+    daw: dawArg,
+    midi,
+    midiMode,
+    midiScale,
+    midiKey,
+    midiOctave,
+    midiChaosAmount
+  });
 
   bridge.httpServer.listen(PORT, () => {
     const ip = getLanIp();
@@ -464,6 +598,9 @@ if (require.main === module) {
     console.log(`║  Dashboard : ${dashboardUrl.padEnd(42)}║`);
     if (bridge.oscSender) {
       console.log(`║  OSC DAW   : ${dawArg.padEnd(42)}║`);
+    }
+    if (bridge.midiSender) {
+      console.log(`║  MIDI      : ACTIVE (mode: ${midiMode ?? 'chaos'})${' '.repeat(23)}║`);
     }
     console.log('║                                                    ║');
     console.log(`║  Max slots : ${String(30).padEnd(42)}║`);
@@ -484,6 +621,8 @@ if (require.main === module) {
     }
     bridge.connections.clear();
     bridge.players.clear();
+
+    if (bridge.midiSender) bridge.midiSender.close();
 
     bridge.allocator.destroy();
 
