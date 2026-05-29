@@ -6,8 +6,11 @@
  * Sends sensor data at 30fps with exponential backoff reconnect.
  * 
  * Protocol:
- *   Phone → Bridge: { type: "sensor", accel:{x,y,z}, gyro:{a,b,g}, orientation:{a,b,g} }
+ *   Phone → Bridge: { type: "sensor", mode: "chordspace", accel:{x,y,z}, gyro:{a,b,g}, orientation:{a,b,g} }
+ *   Phone → Bridge: { type: "modeChange", mode: "drums" }
  *   Bridge → Phone: { type: "assigned", slot: N, bridgeIp: "..." }
+ *   Bridge → Phone: { type: "poolInfo", pools: { chordspace: {active,max}, ... } }
+ *   Bridge → Phone: { type: "modeChanged", mode: "drums", channel: 7 }
  * 
  * Spec: PLAN.md
  * Design: DESIGN.md
