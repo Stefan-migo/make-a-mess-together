@@ -30,18 +30,38 @@
       </div>
     </div>
 
-    <!-- IP Configuration -->
+    <!-- Mode Selector + IP Configuration (combined) -->
     <div id="config-overlay" class="overlay hidden">
       <div class="overlay-content">
-        <h1>Bridge Connection</h1>
-        <p>Enter the bridge IP address shown on the laptop dashboard.</p>
-        <div class="input-group">
-          <input type="text" id="bridge-ip-input" placeholder="192.168.1.100" pattern="\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}">
-          <span class="input-hint">Port: 8080</span>
+        <h1>Select Mode</h1>
+        <p>Choose how your phone controls the music.</p>
+        <div class="mode-selector" id="mode-selector">
+          <button class="mode-btn active" data-mode="chordspace">
+            <span class="mode-icon">&#9835;</span>
+            <span class="mode-name">ChordSpace</span>
+            <span class="mode-desc">Chord tones &amp; progressions</span>
+          </button>
+          <button class="mode-btn" data-mode="drums">
+            <span class="mode-icon">&#9837;</span>
+            <span class="mode-name">Drums</span>
+            <span class="mode-desc">Percussion via motion spikes</span>
+          </button>
+          <button class="mode-btn" data-mode="gesturecanvas">
+            <span class="mode-icon">&#9678;</span>
+            <span class="mode-name">GestureCanvas</span>
+            <span class="mode-desc">Continuous gesture control</span>
+          </button>
         </div>
-        <button id="connect-btn" class="btn-primary">Connect</button>
-        <p id="connect-error" class="error hidden"></p>
-        <p id="scan-hint">Or scan the QR code from the bridge dashboard.</p>
+        <div class="bridge-config-section">
+          <p>Enter the bridge IP address shown on the laptop dashboard.</p>
+          <div class="input-group">
+            <input type="text" id="bridge-ip-input" placeholder="192.168.1.100" pattern="\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}">
+            <span class="input-hint">Port: 8080</span>
+          </div>
+          <button id="connect-btn" class="btn-primary">Connect</button>
+          <p id="connect-error" class="error hidden"></p>
+          <p id="scan-hint">Or scan the QR code from the bridge dashboard.</p>
+        </div>
       </div>
     </div>
 
@@ -192,6 +212,18 @@
           <span class="pen-icon">✏️</span>
           <span class="pen-label">PEN DOWN</span>
         </button>
+      </div>
+    </div>
+
+    <!-- Persistent mode pills during session -->
+    <div id="session-modes" class="hidden">
+      <div class="session-modes-inner" id="session-modes-inner">
+        <button class="mode-pill active" data-mode="chordspace">ChordSpace</button>
+        <button class="mode-pill" data-mode="drums">Drums</button>
+        <button class="mode-pill" data-mode="gesturecanvas">GestureCanvas</button>
+      </div>
+      <div id="pool-display" class="pool-display">
+        <span id="pool-info-text"></span>
       </div>
     </div>
 

@@ -29,6 +29,13 @@
     barMax: 12,                   // Max value for progress bar
     gyroBarMax: 250,              // Max gyro value for progress bar (°/s)
     orientBarMax: 180,            // Max orientation for progress bar (°)
+    validModes: ['chordspace', 'drums', 'gesturecanvas']
+  };
+
+  const MODE_LABELS = {
+    chordspace: 'ChordSpace',
+    drums: 'Drums',
+    gesturecanvas: 'GestureCanvas'
   };
 
   // =========================================================================
@@ -51,6 +58,8 @@
     brushColor: { h: 0, s: 80, b: 90 },
     pressureCurve: 'natural',
     penDown: true,
+    selectedMode: 'chordspace',
+    poolInfo: null,
     sensorData: {
       accel: { x: 0, y: 0, z: 0 },
       gyro: { a: 0, b: 0, g: 0 },
@@ -94,6 +103,13 @@
       penToggle: document.getElementById('pen-toggle-btn'),
       penIcon: document.querySelector('#pen-toggle-btn .pen-icon'),
       penLabel: document.querySelector('#pen-toggle-btn .pen-label'),
+      modeSelector: document.getElementById('mode-selector'),
+      modeBtns: document.querySelectorAll('.mode-btn'),
+      sessionModes: document.getElementById('session-modes'),
+      sessionModesInner: document.getElementById('session-modes-inner'),
+      modePills: document.querySelectorAll('.mode-pill'),
+      poolDisplay: document.getElementById('pool-display'),
+      poolInfoText: document.getElementById('pool-info-text'),
       // Axis elements — built dynamically
       axis: {}
     };
@@ -254,8 +270,12 @@
 
     state.ws.onopen = function() {
       updateConnectionUI('connected', 'Connected');
-      // Send role detection message
-      sendRaw({ type: 'sensor' });
+      // Send role detection message with selected mode
+      const connectMsg = { type: 'sensor' };
+      if (state.selectedMode && CONFIG.validModes.includes(state.selectedMode)) {
+        connectMsg.mode = state.selectedMode;
+      }
+      sendRaw(connectMsg);
       // Reset reconnect counter on successful connection
       state.reconnectAttempt = 0;
     };
@@ -344,6 +364,12 @@
       case 'assigned':
         handleAssignedMessage(msg);
         break;
+      case 'poolInfo':
+        handlePoolInfo(msg);
+        break;
+      case 'modeChanged':
+        handleModeChanged(msg);
+        break;
       // Ignore other message types (sensor data for p5, etc.)
     }
   }
@@ -379,6 +405,7 @@
     // Show sensor readouts
     dom.sensorReadouts.classList.remove('hidden');
     dom.brushConfig.classList.remove('hidden');
+    dom.sessionModes.classList.remove('hidden');
     dom.footer.classList.remove('hidden');
     const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const port = window.location.protocol === 'https:' ? '' : `:${CONFIG.wsPort}`;
@@ -389,6 +416,64 @@
 
     // Re-send current config (pen state, brush, color, etc.) so p5 gets correct state
     saveAndSendConfig();
+  }
+
+  /**
+   * Handle pool info from bridge.
+   * Updates the pool capacity display.
+   */
+  function handlePoolInfo(msg) {
+    state.poolInfo = msg.pools || null;
+    updatePoolDisplay();
+  }
+
+  /**
+   * Handle mode changed confirmation from bridge.
+   */
+  function handleModeChanged(msg) {
+    state.selectedMode = msg.mode;
+    updateModePills();
+  }
+
+  /**
+   * Update the pool capacity display below mode pills.
+   */
+  function updatePoolDisplay() {
+    if (!state.poolInfo || !dom.poolInfoText) return;
+    const pools = state.poolInfo;
+    const parts = [];
+    const poolNames = Object.keys(pools);
+    poolNames.forEach(function(name) {
+      const p = pools[name];
+      const label = MODE_LABELS[name] || name.charAt(0).toUpperCase() + name.slice(1);
+      parts.push(label + ': ' + p.active + '/' + p.max);
+    });
+    dom.poolInfoText.textContent = parts.join('  \u00B7  ');
+  }
+
+  /**
+   * Update mode pill highlighting to match current mode.
+   */
+  function updateModePills() {
+    dom.modePills.forEach(function(pill) {
+      if (pill.dataset.mode === state.selectedMode) {
+        pill.classList.add('active');
+      } else {
+        pill.classList.remove('active');
+      }
+    });
+  }
+
+  /**
+   * Handle mode pill click during session.
+   */
+  function handleModePillClick(e) {
+    const pill = e.currentTarget;
+    const newMode = pill.dataset.mode;
+    if (newMode === state.selectedMode) return;
+    state.selectedMode = newMode;
+    updateModePills();
+    sendRaw({ type: 'modeChange', mode: newMode });
   }
 
   // =========================================================================
@@ -877,6 +962,22 @@
     dom.hueValue.textContent = state.brushColor.h + '\u00B0';
     dom.satValue.textContent = state.brushColor.s + '%';
     dom.briValue.textContent = state.brushColor.b + '%';
+
+    // Set up mode selector buttons (overlay)
+    dom.modeBtns.forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        const mode = this.dataset.mode;
+        if (!CONFIG.validModes.includes(mode)) return;
+        state.selectedMode = mode;
+        dom.modeBtns.forEach(function(b) { b.classList.remove('active'); });
+        this.classList.add('active');
+      });
+    });
+
+    // Set up mode pills (session bottom bar)
+    dom.modePills.forEach(function(pill) {
+      pill.addEventListener('click', handleModePillClick);
+    });
 
     // Toggle config panel
     let configVisible = true;
