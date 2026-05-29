@@ -33,7 +33,7 @@ describe('Bridge Dashboard (Phase 9)', () => {
   let baseUrl;
 
   beforeAll((done) => {
-    bridge = createBridge({ midi: true, midiMode: 'chaos' });
+    bridge = createBridge({ midi: true });
     server = bridge.httpServer;
     server.listen(0, () => {
       baseUrl = `http://localhost:${server.address().port}`;
@@ -92,17 +92,17 @@ describe('Bridge Dashboard (Phase 9)', () => {
     const mockWs = { send: jest.fn(), readyState: 1, bufferedAmount: 0 };
     const info = { role: 'player', id: 1, messageCount: 0, lastSeen: Date.now() };
 
-    bridge._handleMidiConfigMessage(mockWs, info, { type: 'midiConfig', mode: 'scale' });
-    expect(mockMidiMapperInstance.setGlobalConfig).toHaveBeenCalledWith({ mode: 'scale' });
+    bridge._handleMidiConfigMessage(mockWs, info, { type: 'midiConfig', mode: 'chordspace' });
+    expect(mockMidiMapperInstance.setGlobalConfig).toHaveBeenCalledWith({ mode: 'chordspace' });
   });
 
-  test('T039: handleMidiConfigMessage calls midiMapper.setGlobalConfig with valid scale', () => {
+  test('T039: handleMidiConfigMessage calls midiMapper.setGlobalConfig with valid key', () => {
     bridge = createBridge({ midi: true });
     const mockWs = { send: jest.fn(), readyState: 1, bufferedAmount: 0 };
     const info = { role: 'player', id: 1, messageCount: 0, lastSeen: Date.now() };
 
-    bridge._handleMidiConfigMessage(mockWs, info, { type: 'midiConfig', scale: 'blues' });
-    expect(mockMidiMapperInstance.setGlobalConfig).toHaveBeenCalledWith({ scale: 'blues' });
+    bridge._handleMidiConfigMessage(mockWs, info, { type: 'midiConfig', key: 'F#' });
+    expect(mockMidiMapperInstance.setGlobalConfig).toHaveBeenCalledWith({ key: 'F#' });
   });
 
   test('T039: handleMidiConfigMessage calls midiMapper.setGlobalConfig with valid key', () => {
@@ -123,30 +123,12 @@ describe('Bridge Dashboard (Phase 9)', () => {
     expect(mockMidiMapperInstance.setGlobalConfig).toHaveBeenCalledWith({ bpm: 140, octave: 4 });
   });
 
-  test('T039: handleMidiConfigMessage calls midiMapper.setGlobalConfig with chaosAmount and noteThreshold', () => {
-    bridge = createBridge({ midi: true });
-    const mockWs = { send: jest.fn(), readyState: 1, bufferedAmount: 0 };
-    const info = { role: 'player', id: 1, messageCount: 0, lastSeen: Date.now() };
-
-    bridge._handleMidiConfigMessage(mockWs, info, { type: 'midiConfig', chaosAmount: 0.75, noteThreshold: 25 });
-    expect(mockMidiMapperInstance.setGlobalConfig).toHaveBeenCalledWith({ chaosAmount: 0.75, noteThreshold: 25 });
-  });
-
   test('T040: invalid mode is rejected', () => {
     bridge = createBridge({ midi: true });
     const mockWs = { send: jest.fn(), readyState: 1, bufferedAmount: 0 };
     const info = { role: 'player', id: 1, messageCount: 0, lastSeen: Date.now() };
 
     bridge._handleMidiConfigMessage(mockWs, info, { type: 'midiConfig', mode: 'invalid' });
-    expect(mockMidiMapperInstance.setGlobalConfig).not.toHaveBeenCalled();
-  });
-
-  test('T040: invalid scale is rejected', () => {
-    bridge = createBridge({ midi: true });
-    const mockWs = { send: jest.fn(), readyState: 1, bufferedAmount: 0 };
-    const info = { role: 'player', id: 1, messageCount: 0, lastSeen: Date.now() };
-
-    bridge._handleMidiConfigMessage(mockWs, info, { type: 'midiConfig', scale: 'nonsense' });
     expect(mockMidiMapperInstance.setGlobalConfig).not.toHaveBeenCalled();
   });
 
@@ -183,30 +165,6 @@ describe('Bridge Dashboard (Phase 9)', () => {
     expect(mockMidiMapperInstance.setGlobalConfig).toHaveBeenCalledWith({ bpm: 20 });
   });
 
-  test('T040: chaosAmount is clamped to 0-1', () => {
-    bridge = createBridge({ midi: true });
-    const mockWs = { send: jest.fn(), readyState: 1, bufferedAmount: 0 };
-    const info = { role: 'player', id: 1, messageCount: 0, lastSeen: Date.now() };
-
-    bridge._handleMidiConfigMessage(mockWs, info, { type: 'midiConfig', chaosAmount: 5 });
-    expect(mockMidiMapperInstance.setGlobalConfig).toHaveBeenCalledWith({ chaosAmount: 1 });
-
-    bridge._handleMidiConfigMessage(mockWs, info, { type: 'midiConfig', chaosAmount: -1 });
-    expect(mockMidiMapperInstance.setGlobalConfig).toHaveBeenCalledWith({ chaosAmount: 0 });
-  });
-
-  test('T040: noteThreshold is clamped to 1-127', () => {
-    bridge = createBridge({ midi: true });
-    const mockWs = { send: jest.fn(), readyState: 1, bufferedAmount: 0 };
-    const info = { role: 'player', id: 1, messageCount: 0, lastSeen: Date.now() };
-
-    bridge._handleMidiConfigMessage(mockWs, info, { type: 'midiConfig', noteThreshold: 200 });
-    expect(mockMidiMapperInstance.setGlobalConfig).toHaveBeenCalledWith({ noteThreshold: 127 });
-
-    bridge._handleMidiConfigMessage(mockWs, info, { type: 'midiConfig', noteThreshold: 0 });
-    expect(mockMidiMapperInstance.setGlobalConfig).toHaveBeenCalledWith({ noteThreshold: 1 });
-  });
-
   test('T041: dashboard registers as monitor (player type)', () => {
     bridge = createBridge({ midi: true });
     const mockWs = { send: jest.fn(), readyState: 1, bufferedAmount: 0 };
@@ -233,7 +191,7 @@ describe('Bridge Dashboard (Phase 9)', () => {
     const mockWs = { send: jest.fn(), readyState: 1, bufferedAmount: 0 };
     const info = { role: 'player', id: 1, messageCount: 0, lastSeen: Date.now() };
 
-    bridgeNoMidi._handleMidiConfigMessage(mockWs, info, { type: 'midiConfig', mode: 'scale' });
+    bridgeNoMidi._handleMidiConfigMessage(mockWs, info, { type: 'midiConfig', mode: 'chordspace' });
     expect(mockMidiMapperInstance.setGlobalConfig).not.toHaveBeenCalled();
     try { bridgeNoMidi.wss.close(); } catch (_) {}
     try { bridgeNoMidi.httpServer.close(); } catch (_) {}
@@ -244,9 +202,9 @@ describe('Bridge Dashboard (Phase 9)', () => {
     const mockWs = { send: jest.fn(), readyState: 1, bufferedAmount: 0 };
     const info = { role: 'player', id: 1, messageCount: 0, lastSeen: Date.now() };
 
-    bridge._handleMidiConfigMessage(mockWs, info, { type: 'midiConfig', mode: 'arp', bpm: 160, chaosAmount: 0.9, key: 'D' });
+    bridge._handleMidiConfigMessage(mockWs, info, { type: 'midiConfig', mode: 'drums', bpm: 160, key: 'D' });
     expect(mockMidiMapperInstance.setGlobalConfig).toHaveBeenCalledTimes(1);
-    expect(mockMidiMapperInstance.setGlobalConfig).toHaveBeenCalledWith({ mode: 'arp', bpm: 160, chaosAmount: 0.9, key: 'D' });
+    expect(mockMidiMapperInstance.setGlobalConfig).toHaveBeenCalledWith({ mode: 'drums', bpm: 160, key: 'D' });
   });
 
   test('T042: enableMidi activates MIDI on-the-fly', () => {

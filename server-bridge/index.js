@@ -66,6 +66,13 @@ function createBridge(options = {}) {
   const players = new Set();
   let connectionIdCounter = 0;
 
+  const POOL_CONFIGS = {
+    chordspace: { channels: [1, 2, 3, 4, 5, 6], max: 6 },
+    drums: { channels: [7, 8], max: 2 },
+    gesturecanvas: { channels: [9, 10], max: 2 }
+  };
+  const VALID_MODES = Object.keys(POOL_CONFIGS);
+
   // -----------------------------------------------------------------------
   // OscSender (DAW integration)
   // -----------------------------------------------------------------------
@@ -87,11 +94,8 @@ function createBridge(options = {}) {
     midiSender = new MidiSender();
     midiMapper = new MidiMapper();
 
-    if (options.midiMode) midiMapper.setGlobalConfig({ mode: options.midiMode });
-    if (options.midiScale) midiMapper.setGlobalConfig({ scale: options.midiScale });
     if (options.midiKey) midiMapper.setGlobalConfig({ key: options.midiKey });
     if (options.midiOctave !== undefined) midiMapper.setGlobalConfig({ octave: options.midiOctave });
-    if (options.midiChaosAmount !== undefined) midiMapper.setGlobalConfig({ chaosAmount: options.midiChaosAmount });
 
     _connectMidiToReaper();
   }
@@ -117,6 +121,99 @@ function createBridge(options = {}) {
         console.log('[MIDI] Connected to REAPER via pw-link');
       });
     });
+  }
+
+  function _assignChannel(slot, mode) {
+    const pool = POOL_CONFIGS[mode];
+    if (!pool) throw new Error(`Unknown mode: ${mode}`);
+    let occupied = 0;
+    for (const [, info] of connections) {
+      if (info.role === 'sensor' && info.mode === mode && info.slot !== slot) {
+        occupied++;
+      }
+    }
+    const index = occupied % pool.channels.length;
+    return pool.channels[index];
+  }
+
+  function _generateMusicalState(slot, mode, sensorData, events) {
+    const base = { type: 'musicalState', slot, mode };
+
+    if (mode === 'chordspace') {
+      const noteOn = events.find(e => e.type === 'noteon');
+      const noteOff = events.find(e => e.type === 'noteoff');
+      const cc11 = events.find(e => e.type === 'cc' && e.cc === 11);
+      const cc1 = events.find(e => e.type === 'cc' && e.cc === 1);
+      return {
+        ...base,
+        noteNumber: noteOn?.note ?? noteOff?.note ?? 0,
+        velocity: noteOn?.velocity ?? 0,
+        gateOpen: !noteOff && !!noteOn,
+        volume: cc11?.value ?? 64,
+        filterCutoff: cc1?.value ?? 64
+      };
+    }
+
+    if (mode === 'drums') {
+      const noteOn = events.find(e => e.type === 'noteon');
+      const cc4 = events.find(e => e.type === 'cc' && e.cc === 4);
+      const lastHitNames = { 36: 'kick', 38: 'snare', 49: 'crash', 47: 'tom_low', 48: 'tom_mid', 50: 'tom_high' };
+      const lastNote = noteOn?.note ?? 0;
+      return {
+        ...base,
+        lastHit: lastHitNames[lastNote] || 'none',
+        lastNote,
+        velocity: noteOn?.velocity ?? 0,
+        hiHatOpen: cc4?.value ?? 0
+      };
+    }
+
+    if (mode === 'gesturecanvas') {
+      const cc1 = events.find(e => e.type === 'cc' && e.cc === 1);
+      const cc10 = events.find(e => e.type === 'cc' && e.cc === 10);
+      const cc91 = events.find(e => e.type === 'cc' && e.cc === 91);
+      const cc71 = events.find(e => e.type === 'cc' && e.cc === 71);
+      const cc7 = events.find(e => e.type === 'cc' && e.cc === 7);
+      return {
+        ...base,
+        speed: cc1?.value ?? 0,
+        direction: cc10?.value ?? 64,
+        size: cc91?.value ?? 0,
+        complexity: cc71?.value ?? 0,
+        scene: cc7 ? Math.floor(cc7.value / 42) : 0
+      };
+    }
+
+    return base;
+  }
+
+  function _handleModeChange(ws, info, msg) {
+    const mode = msg.mode;
+    if (!VALID_MODES.includes(mode)) {
+      try {
+        ws.send(JSON.stringify({ type: 'error', message: `Unknown mode: ${mode}` }));
+      } catch (_) {}
+      return;
+    }
+
+    if (midiSender) {
+      for (let ch = 0; ch < 16; ch++) {
+        midiSender.allNotesOff(ch);
+      }
+    }
+
+    info.mode = mode;
+
+    if (midiMapper) {
+      midiMapper.setSlotConfig(info.slot, { mode });
+    }
+
+    try {
+      ws.send(JSON.stringify({ type: 'modeChanged', mode, channel: _assignChannel(info.slot, mode) }));
+    } catch (_) {}
+
+    broadcastState();
+    console.log(`[modeChange] Slot ${info.slot} → ${mode}`);
   }
 
   function broadcastToPlayers(msg, exclude = null) {
@@ -152,7 +249,8 @@ function createBridge(options = {}) {
         devices.push({
           slot: info.slot,
           label: `Phone ${info.slot}`,
-          type: info.type || 'sensor'
+          type: info.type || 'sensor',
+          mode: info.mode || 'chordspace'
         });
       }
     }
@@ -207,6 +305,20 @@ function createBridge(options = {}) {
         devices: allocator.activeCount,
         players: players.size
       }));
+      return;
+    }
+
+    if (pathname === '/api/pools') {
+      const pools = {};
+      for (const [name, cfg] of Object.entries(POOL_CONFIGS)) {
+        let active = 0;
+        for (const [, info] of connections) {
+          if (info.role === 'sensor' && info.mode === name) active++;
+        }
+        pools[name] = { active, max: cfg.max, channels: cfg.channels };
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(pools));
       return;
     }
 
@@ -333,7 +445,10 @@ function createBridge(options = {}) {
     }
 
     if (midiSender && midiMapper && msg.type === 'sensor') {
-      const events = midiMapper.processSensor(info.slot, msg);
+      const slotMode = info.mode || 'chordspace';
+      const channel = _assignChannel(slot, slotMode);
+      midiMapper.setSlotConfig(slot, { mode: slotMode, channel });
+      const events = midiMapper.processSensor(slot, msg);
       for (const evt of events) {
         switch (evt.type) {
           case 'noteon':
@@ -350,6 +465,8 @@ function createBridge(options = {}) {
             break;
         }
       }
+      const musicalState = _generateMusicalState(slot, slotMode, msg, events);
+      broadcastToPlayers(musicalState);
     }
   }
 
@@ -385,19 +502,14 @@ function createBridge(options = {}) {
     }
 
     const config = {};
-    if (msg.mode && ['chaos', 'scale', 'theremin', 'chord', 'arp'].includes(msg.mode)) {
+    if (msg.mode && VALID_MODES.includes(msg.mode)) {
       config.mode = msg.mode;
-    }
-    if (msg.scale) {
-      const validScales = ['chromatic', 'major', 'minor', 'pentatonic', 'blues', 'wholeTone', 'dorian', 'mixolydian', 'lydian', 'phrygian', 'locrian', 'augmented', 'diminished'];
-      if (validScales.includes(msg.scale)) config.scale = msg.scale;
     }
     if (msg.key && ['C','C#','Db','D','D#','Eb','E','F','F#','Gb','G','G#','Ab','A','A#','Bb','B'].includes(msg.key)) {
       config.key = msg.key;
     }
     if (msg.octave !== undefined) config.octave = Math.min(Math.max(Math.round(msg.octave), 1), 7);
     if (msg.bpm !== undefined) config.bpm = Math.min(Math.max(msg.bpm, 20), 300);
-    if (msg.chaosAmount !== undefined) config.chaosAmount = Math.min(Math.max(Number(msg.chaosAmount), 0), 1);
     if (msg.noteThreshold !== undefined) config.noteThreshold = Math.min(Math.max(Math.round(msg.noteThreshold), 1), 127);
 
     if (Object.keys(config).length > 0) {
@@ -481,6 +593,7 @@ function createBridge(options = {}) {
         connInfo.role = role;
 
         if (role === 'sensor') {
+          connInfo.mode = msg.mode || 'chordspace';
           handleSensorConnect(ws, connInfo);
         } else if (role === 'player') {
           handlePlayerConnect(ws, connInfo);
@@ -493,6 +606,8 @@ function createBridge(options = {}) {
           handleSensorMessage(ws, connInfo, msg);
         } else if (msg.type === 'config') {
           handleConfigMessage(ws, connInfo, msg);
+        } else if (msg.type === 'modeChange') {
+          _handleModeChange(ws, connInfo, msg);
         }
       } else if (connInfo.role === 'player' && msg.type === 'midiConfig') {
         handleMidiConfigMessage(ws, connInfo, msg);
@@ -583,7 +698,10 @@ function createBridge(options = {}) {
     _handlePlayerConnect: handlePlayerConnect,
     _handleMidiConfigMessage: handleMidiConfigMessage,
     _handleDisconnect: handleDisconnect,
-    _connectMidiToReaper
+    _connectMidiToReaper,
+    _assignChannel,
+    _handleModeChange,
+    _generateMusicalState
   };
 }
 
@@ -594,20 +712,14 @@ function createBridge(options = {}) {
 if (require.main === module) {
   const dawArg = parseDawArg();
   const midi = parseMidiArg();
-  const midiMode = parseMidiOption('--mode', 'chaos');
-  const midiScale = parseMidiOption('--scale', 'pentatonic');
   const midiKey = parseMidiOption('--key', 'C');
   const midiOctave = parseInt(parseMidiOption('--octave', '3'), 10);
-  const midiChaosAmount = parseFloat(parseMidiOption('--chaos-amount', '0.5'));
 
   const bridge = createBridge({
     daw: dawArg,
     midi,
-    midiMode,
-    midiScale,
     midiKey,
-    midiOctave,
-    midiChaosAmount
+    midiOctave
   });
 
   bridge.httpServer.listen(PORT, () => {
@@ -624,7 +736,7 @@ if (require.main === module) {
       console.log(`║  OSC DAW   : ${dawArg.padEnd(42)}║`);
     }
     if (bridge.midiSender) {
-      console.log(`║  MIDI      : ACTIVE (mode: ${midiMode ?? 'chaos'})${' '.repeat(23)}║`);
+      console.log(`║  MIDI      : ACTIVE (per-phone modes)${' '.repeat(23)}║`);
     }
     console.log('║                                                    ║');
     console.log(`║  Max slots : ${String(30).padEnd(42)}║`);

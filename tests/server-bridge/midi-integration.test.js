@@ -45,13 +45,13 @@ describe('MIDI Bridge Integration', () => {
   });
 
   test('T033: Bridge with --midi creates MidiSender + MidiMapper', () => {
-    bridge = createBridge({ midi: true, midiMode: 'chaos' });
+    bridge = createBridge({ midi: true });
     expect(bridge.midiSender).toBe(mockMidiSenderInstance);
     expect(bridge.midiMapper).toBe(mockMidiMapperInstance);
   });
 
   test('T034: Sensor message triggers midiMapper.processSensor and midiSender.sendCC', () => {
-    bridge = createBridge({ midi: true, midiMode: 'chaos' });
+    bridge = createBridge({ midi: true });
     const mockWs = { send: jest.fn(), readyState: 1, bufferedAmount: 0 };
     const info = { role: 'sensor', slot: 0, id: 1, messageCount: 0, lastSeen: Date.now() };
     bridge.connections.set(mockWs, info);
@@ -82,12 +82,10 @@ describe('MIDI Bridge Integration', () => {
     expect(mockMidiSenderInstance.allNotesOff).toHaveBeenCalledWith(slot & 0x0f);
   });
 
-  test('CLI mode/scale/key flags configure MidiMapper', () => {
-    bridge = createBridge({ midi: true, midiMode: 'scale', midiScale: 'blues', midiKey: 'D' });
-    expect(mockMidiMapperInstance.setGlobalConfig).toHaveBeenCalledTimes(3);
-    expect(mockMidiMapperInstance.setGlobalConfig).toHaveBeenCalledWith({ mode: 'scale' });
-    expect(mockMidiMapperInstance.setGlobalConfig).toHaveBeenCalledWith({ scale: 'blues' });
+  test('CLI key/octave flags configure MidiMapper', () => {
+    bridge = createBridge({ midi: true, midiKey: 'D', midiOctave: 4 });
     expect(mockMidiMapperInstance.setGlobalConfig).toHaveBeenCalledWith({ key: 'D' });
+    expect(mockMidiMapperInstance.setGlobalConfig).toHaveBeenCalledWith({ octave: 4 });
   });
 
   test('midiSender.close() called when sender exists', () => {
