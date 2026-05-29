@@ -104,5 +104,5 @@ Key differences from OSC:
 
 Run both simultaneously:
 ```bash
-node server-bridge/index.js --daw 127.0.0.1:9000 --midi --mode scale
+node server-bridge/index.js --daw 127.0.0.1:9000 --midi --key D --octave 3
 ```

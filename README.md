@@ -196,12 +196,12 @@ cd server-bridge
 node index.js --midi
 ```
 
-Five performance modes:
-- **Chaos** — raw sensor-to-MIDI, no music theory
-- **Scale** — quantized to musical scale (13 scales, 17 keys)
-- **Theremin** — continuous pitch bend with shake gate
-- **Chord** — diatonic chord voicings with inversions + extensions
-- **Arp** — BPM-synced arpeggiator with 5 patterns
+Three per-slot compositional modes:
+- **ChordSpace** — each phone plays one chord tone (root/3rd/5th/7th/tension), chord degree via tilt, compass gate, pitch bend
+- **Drums** — percussive hits on accel spikes (kick/snare/crash/toms), hi-hat via gyro, GM drum map
+- **GestureCanvas** — pure continuous CC stream (speed/pan/reverb/complexity/circularity), no discrete notes
+
+Musical state (current chord tone, drum hit type, gesture metric) is synced back to the p5 visuals for real-time visual feedback.
 
 See [docs/MIDI-SETUP.md](docs/MIDI-SETUP.md) for full guide.
 

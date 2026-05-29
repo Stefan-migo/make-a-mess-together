@@ -23,23 +23,11 @@ npm install                        # installs @julusian/midi
 The bridge automatically connects to REAPER via PipeWire (`pw-link`) — no extra setup needed.
 
 ```bash
-# Chaos mode (default) — raw sensor-to-MIDI, no music theory
+# Default — 3-pool system (ChordSpace, Drums, GestureCanvas)
 node server-bridge/index.js --midi
 
-# Scale mode — quantized to a musical scale
-node server-bridge/index.js --midi --mode scale --scale pentatonic --key D
-
-# Theremin — continuous pitch with accelMag gate
-node server-bridge/index.js --midi --mode theremin --scale whole-tone --key C
-
-# Chord — orientation picks chord degree + inversion
-node server-bridge/index.js --midi --mode chord --key Am
-
-# Arpeggiator — BPM-synced note sequencer
-node server-bridge/index.js --midi --mode arp --scale blues --key A --bpm 140
-
-# All together: MIDI + OSC + WebSocket
-node server-bridge/index.js --daw 127.0.0.1:9000 --midi --mode scale --scale pentatonic --key D
+# With OSC output alongside MIDI
+node server-bridge/index.js --daw 127.0.0.1:9000 --midi
 ```
 
 ### Start the dashboard
@@ -78,46 +66,53 @@ Create a 30-track project template with per-channel MIDI routing:
 
 ## MIDI Message Reference
 
-### Per Channel (Slot N)
+### Per Mode — CC + Note Maps
 
-| Message | Bytes | Sensor Mapping |
-|---------|-------|---------------|
-| Note On | `[0x90 \| ch, note, vel]` | accelMag > threshold triggers note |
-| Note Off | `[0x80 \| ch, note, vel]` | accelMag < threshold releases note |
-| CC 1 | `[0xB0 \| ch, 1, val]` | accel/x → filter cutoff |
-| CC 2 | `[0xB0 \| ch, 2, val]` | accel/y → modulation |
-| CC 3 | `[0xB0 \| ch, 3, val]` | accel/z → resonance |
-| CC 4 | `[0xB0 \| ch, 4, val]` | gyro/a → LFO rate |
-| CC 5 | `[0xB0 \| ch, 5, val]` | gyro/b → effect depth |
-| CC 6 | `[0xB0 \| ch, 6, val]` | gyro/g → pan |
-| CC 7 | `[0xB0 \| ch, 7, val]` | orientation/α → scene select |
-| CC 8 | `[0xB0 \| ch, 8, val]` | orientation/β → tilt X |
-| CC 9 | `[0xB0 \| ch, 9, val]` | orientation/γ → tilt Y |
-| CC 11 | `[0xB0 \| ch, 11, val]` | gyro/a → expression (theremin only) |
-| Pitch Bend | `[0xE0 \| ch, lsb, msb]` | gyro/a → 14-bit bend |
+Messages vary by the phone's active mode (set per-slot via dashboard or WebSocket):
+
+**ChordSpace:**
+| Message | Channel Range | Sensor Mapping |
+|---------|--------------|---------------|
+| Note On/Off | CH 1–6 | accel.x zone → chord tone, gate from orientation.a |
+| CC 1 | CH 1–6 | accel.z → filter cutoff |
+| CC 2 | CH 1–6 | accel.y → modulation |
+| CC 11 | CH 1–6 | orientation.β → volume (bounded 40–100) |
+| Pitch Bend | CH 1–6 | gyro.a → 14-bit bend |
+
+**Drums:**
+| Message | Channel Range | Sensor Mapping |
+|---------|--------------|---------------|
+| Note On (no Off) | CH 7–8 | accel delta spikes: X=kick(36), Y=snare(38), Z=crash(49); gyro.b delta → tom(47/48/50) |
+| CC 1 | CH 7–8 | accel.z → filter cutoff |
+| CC 4 | CH 7–8 | gyro.a → hi-hat openness |
+| CC 7 | CH 7–8 | orientation.a → pattern zone (4 × 42) |
+
+**GestureCanvas:**
+| Message | Channel Range | Sensor Mapping |
+|---------|--------------|---------------|
+| CC 1 + 74 | CH 9–10 | gyro magnitude → gesture speed |
+| CC 7 | CH 9–10 | orientation.a → scene (4 × 42) |
+| CC 10 | CH 9–10 | gyro direction → pan |
+| CC 16 + 71 | CH 9–10 | direction change → complexity |
+| CC 17 | CH 9–10 | gyro buffer correlation → circularity |
+| CC 91 + 93 | CH 9–10 | accel magnitude → reverb/chorus send |
 
 ### Rate
 - **CCs + Pitch Bend**: 30fps continuous stream
-- **Notes**: Event-based, triggered by phone shaking (accelMag threshold)
+- **Notes**: Event-based, triggered by zone change or accel spike
 - Throughput: ~24 KB/sec for all 30 channels — negligible
 
 ---
 
 ## Mode Reference
 
-| Mode | CLI Flag | Description |
-|------|----------|-------------|
-| Chaos | `--mode chaos` | Raw sensor → MIDI note. No music theory. orientation/β → note 36-96. gyro/z → randomness amount. |
-| Scale | `--mode scale --scale <name> --key <key>` | Sensor quantized to musical scale. orientation/β → degree in scale. 13 scales available. |
-| Theremin | `--mode theremin --scale <name>` | Continuous pitch bend between scale degrees. accelMag > 15 = note on, < 10 = note off. gyro/a → CC 11 volume. |
-| Chord | `--mode chord --key <key>` | Full diatonic chords. orientation/β → degree (I-VII). accel/x → inversion. gyro/z → extension (7th, 9th, 11th, 13th). |
-| Arp | `--mode arp --scale <name> --key <key> --bpm <bpm>` | BPM-synced arpeggiator. orientation/β → rate. accel/y → pattern. gyro/a → octave range. orientation/γ → gate. |
+Modes are assigned per-slot via the dashboard or WebSocket `modeChange` messages. Each mode maps to its own MIDI channel pool.
 
-### Available Scales
-chromatic, major, minor, pentatonic, blues, wholeTone, dorian, mixolydian, lydian, phrygian, locrian, augmented, diminished
-
-### Available Keys
-C, C#, Db, D, D#, Eb, E, F, F#, Gb, G, G#, Ab, A, A#, Bb, B
+| Mode | MIDI Channels | Description |
+|------|--------------|-------------|
+| ChordSpace | CH 1–6 | Each phone plays one chord tone selected by accel.x zone (root/3rd/5th/7th/tension). Chord degree selected by accel.y tilt. Compass gate (orientation.a) silences notes outside active windows. Pitch bend from gyro.a. Volume bounded 40–100. |
+| Drums | CH 7–8 | Percussive hits triggered by accel delta spikes. GM drum map: kick (36) on X spike, snare (38) on Y spike, crash (49) on Z spike. Hi-hat openness via gyro.a (CC 4). Toms (47/48/50) via gyro.b tilt. Pattern zone selector via orientation.a (CC 7). No Note Off — drum VST handles decay. |
+| GestureCanvas | CH 9–10 | Pure continuous CC stream — no notes. Gyro magnitude maps to speed (CC 1 + 74). Gesture direction to pan (CC 10). Accel magnitude (gravity-cancelled) to reverb/chorus send (CC 91/93). Motion complexity to modulation (CC 16/71). Circularity metric from gyro buffer correlation (CC 17). Scene select via orientation.a (CC 7). |
 
 ---
 
@@ -129,17 +124,13 @@ node server-bridge/index.js [options]
 Options:
   --midi                  Enable MIDI output (ALSA virtual port)
   --daw <host:port>       Enable OSC output for DAW parameter control
-  --mode <name>           MIDI mode: chaos, scale, theremin, chord, arp
-  --scale <name>          Musical scale (default: pentatonic)
   --key <key>             Key / root note (default: C)
   --octave <n>            Base octave 1-7 (default: 3)
-  --bpm <n>               Beats per minute for arp mode (default: 120)
-  --chaos-amount <n>      Chaos randomization 0-1 (default: 0.5)
 
 Examples:
-  node index.js --midi                          # Chaos mode
-  node index.js --midi --mode scale --scale blues --key A   # Blues in A
-  node index.js --daw 192.168.1.100:9000 --midi --mode chord --key Cmaj7
+  node index.js --midi                          # Default 3-pool MIDI
+  node index.js --midi --key D --octave 3       # Set key + octave
+  node index.js --daw 192.168.1.100:9000 --midi # MIDI + OSC
 ```
 
 ---
@@ -198,7 +189,7 @@ The bridge automatically runs `pw-link` to connect its virtual MIDI port to REAP
 The dashboard sends per-slot overrides via WebSocket:
 ```javascript
 // Override mode for slot 3 only
-{ type: 'midiConfig', slot: 3, mode: 'theremin', scale: 'whole-tone' }
+{ type: 'modeChange', mode: 'drums' }
 ```
 
 Not yet implemented in the bridge — coming in a future update.
