@@ -1,53 +1,31 @@
-const SCALES = {
-  chromatic:   [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
-  major:       [0, 2, 4, 5, 7, 9, 11],
-  minor:       [0, 2, 3, 5, 7, 8, 10],
-  pentatonic:  [0, 2, 4, 7, 9],
-  blues:       [0, 3, 5, 6, 7, 10],
-  wholeTone:   [0, 2, 4, 6, 8, 10],
-  dorian:      [0, 2, 3, 5, 7, 9, 10],
-  mixolydian:  [0, 2, 4, 5, 7, 9, 10],
-  lydian:      [0, 2, 4, 6, 7, 9, 11],
-  phrygian:    [0, 1, 3, 5, 7, 8, 10],
-  locrian:     [0, 1, 3, 5, 6, 8, 10],
-  augmented:   [0, 3, 4, 7, 8, 11],
-  diminished:  [0, 2, 3, 5, 6, 8, 9, 11]
-};
-
 const KEY_TO_ROOT = {
   'C': 0, 'C#': 1, 'Db': 1, 'D': 2, 'D#': 3, 'Eb': 3,
   'E': 4, 'F': 5, 'F#': 6, 'Gb': 6, 'G': 7, 'G#': 8,
   'Ab': 8, 'A': 9, 'A#': 10, 'Bb': 10, 'B': 11
 };
 
-const ARP_SUBDIVISIONS = [32, 24, 16, 12, 8, 6, 4, 3, 2, 1.5, 1];
-const ARP_PATTERNS = ['up', 'down', 'upDown', 'random', 'pingPong'];
-
-const CHORD_VOICINGS = {
-  0: { intervals: [0, 4, 7],   extensions: { 0:[], 1:[10], 2:[14], 3:[17], 4:[21] } },
-  1: { intervals: [0, 3, 7],   extensions: { 0:[], 1:[10], 2:[14], 3:[17], 4:[21] } },
-  2: { intervals: [0, 3, 7],   extensions: { 0:[], 1:[10], 2:[14] } },
-  3: { intervals: [0, 4, 7],   extensions: { 0:[], 1:[11], 2:[14], 3:[17] } },
-  4: { intervals: [0, 4, 7],   extensions: { 0:[], 1:[10], 2:[14], 3:[17], 4:[21] } },
-  5: { intervals: [0, 3, 7],   extensions: { 0:[], 1:[10], 2:[14] } },
-  6: { intervals: [0, 3, 6],   extensions: { 0:[], 1:[10], 2:[14] } }
-};
-
 class MidiMapper {
   constructor() {
     this.globalConfig = {
-      mode: 'chaos',
-      scale: 'pentatonic',
+      mode: 'chordspace',
       key: 'C',
-      octave: 3,
-      chaosAmount: 0.5,
-      noteThreshold: 15,
-      noteRange: [36, 96]
+      octave: 3
     };
     this.slotConfigs = {};
     this._heldNotes = {};
-    this._heldChordNotes = {};
-    this._arpState = {};
+    this._zoneTimer = {};
+    this._lastNote = {};
+    this._pendingZone = {};
+    this._prevOrientA = {};
+    this._fadeState = {};
+    this._gateState = {};
+    this._prevSensor = {};
+    this._lastKick = {};
+    this._lastSnare = {};
+    this._lastCrash = {};
+    this._lastTom = {};
+    this._prevDirection = {};
+    this._gyroBuffer = {};
   }
 
   setGlobalConfig(config) {
@@ -56,18 +34,6 @@ class MidiMapper {
 
   setSlotConfig(slot, config) {
     this.slotConfigs[slot] = { ...config };
-  }
-
-  getScaleNotes(scaleName, keyName, octave) {
-    const scale = SCALES[scaleName] || SCALES.pentatonic;
-    const root = KEY_TO_ROOT[keyName] !== undefined ? KEY_TO_ROOT[keyName] : 0;
-    const baseNote = (octave + 1) * 12 + root;
-    return scale.map(interval => baseNote + interval);
-  }
-
-  _sensorToScaleDegree(value, scaleLength) {
-    const index = Math.floor(value * scaleLength);
-    return Math.min(index, scaleLength - 1);
   }
 
   _clamp(value, min, max) {
@@ -84,6 +50,12 @@ class MidiMapper {
 
   _getConfig(slot) {
     return this.slotConfigs[slot] || this.globalConfig;
+  }
+
+  _getChannel(slot) {
+    const config = this._getConfig(slot);
+    if (config.channel !== undefined && config.channel !== null) return config.channel;
+    return slot & 0x0f;
   }
 
   _calcAccelMag(accel) {
@@ -105,274 +77,293 @@ class MidiMapper {
     return Math.round(this._clamp(mapped, 0, 16383));
   }
 
-  _calcArpRate(beta, bpm) {
-    const normalized = Math.min(Math.max(beta / 180, 0), 1);
-    const index = Math.min(Math.floor(normalized * (ARP_SUBDIVISIONS.length - 1)), ARP_SUBDIVISIONS.length - 1);
-    const subdivision = ARP_SUBDIVISIONS[index];
-    return Math.round(60000 / bpm / subdivision);
+  _getAccelXZone(accelX) {
+    if (accelX < -7) return 0;
+    if (accelX < -2) return 1;
+    if (accelX <= 1) return 2;
+    if (accelX <= 6) return 3;
+    return 4;
   }
 
-  _calcArpPattern(y) {
-    const normalized = Math.min(Math.max(Math.abs(y) / 10, 0), 1);
-    const index = Math.min(Math.floor(normalized * (ARP_PATTERNS.length - 1)), ARP_PATTERNS.length - 1);
-    return ARP_PATTERNS[index];
+  _getProgressionDegree(accelY) {
+    if (accelY < -4) return 0;
+    if (accelY <= 3) return 1;
+    if (accelY <= 8) return 2;
+    return 3;
   }
 
-  _calcArpOctaveRange(a) {
-    const normalized = Math.min(Math.max((a + 2000) / 4000, 0), 1);
-    return 1 + Math.floor(normalized * 3);
+  _isGateOpen(orientA) {
+    const a = ((orientA % 360) + 360) % 360;
+    return (a >= 45 && a <= 135) || (a >= 225 && a <= 315);
   }
 
-  _calcArpGate(gamma) {
-    const normalized = Math.min(Math.max((gamma + 90) / 180, 0), 1);
-    return 0.1 + normalized * 0.8;
+  _isGateOpenHysteresis(orientA, prevState) {
+    const a = ((orientA % 360) + 360) % 360;
+    const wasOpen = prevState || false;
+    const isInOnWindow = (a >= 45 && a <= 135) || (a >= 225 && a <= 315);
+    const isInOffWindow = (a > 40 && a < 140) || (a > 220 && a < 320);
+    if (isInOnWindow) return true;
+    if (wasOpen && isInOffWindow) return true;
+    return false;
   }
 
-  _buildArpNotePool(slot, config) {
-    const scaleNotes = this.getScaleNotes(config.scale, config.key, config.octave);
-    const range = this._arpState[slot]?.octaveRange || 2;
-    const pool = [];
-    for (let oct = 0; oct < range; oct++) {
-      for (const note of scaleNotes) {
-        pool.push(note + (oct * 12));
-      }
-    }
-    return pool;
+  _mapVolume(orientB) {
+    const vol = this._mapRange(orientB, -180, 180, 40, 100);
+    return Math.round(this._clamp(vol, 40, 100));
   }
 
-  _nextArpStep(slot) {
-    const state = this._arpState[slot];
-    if (!state || state.notePool.length === 0) return null;
+  _processChordSpace(slot, data, config) {
+    const accelX = data.accel?.x ?? 0;
+    const accelY = data.accel?.y ?? 0;
+    const accelZ = data.accel?.z ?? 0;
+    const gyroA = data.gyro?.a ?? 0;
+    const gyroB = data.gyro?.b ?? 0;
+    const gyroG = data.gyro?.g ?? 0;
+    const orientA = data.orientation?.a ?? 0;
+    const orientB = data.orientation?.b ?? 0;
 
-    const maxIdx = state.notePool.length - 1;
-    let step;
-
-    switch (state.pattern) {
-      case 'up':
-        step = state.step + 1;
-        if (step > maxIdx) step = 0;
-        break;
-      case 'down':
-        step = state.step - 1;
-        if (step < 0) step = maxIdx;
-        break;
-      case 'upDown':
-        step = state.step + state.direction;
-        if (step > maxIdx) { state.direction = -1; step = maxIdx - 1; }
-        if (step < 0) { state.direction = 1; step = 1; }
-        break;
-      case 'random':
-        step = Math.floor(Math.random() * (maxIdx + 1));
-        break;
-      case 'pingPong':
-        step = state.step + state.direction;
-        if (step >= maxIdx) { state.direction = -1; }
-        if (step <= 0) { state.direction = 1; }
-        break;
-      default:
-        step = (state.step + 1) % (maxIdx + 1);
-    }
-
-    return Math.min(Math.max(step, 0), maxIdx);
-  }
-
-  _startArp(slot, config) {
-    if (this._arpState[slot]?.active) return;
-
-    const state = this._arpState[slot] || {};
-    state.active = true;
-    state.step = 0;
-    state.direction = 1;
-    state.pattern = state.pattern || 'up';
-    state.rateMs = state.rateMs || 125;
-    state.gate = state.gate || 0.5;
-    state.octaveRange = state.octaveRange || 2;
-    state.notePool = this._buildArpNotePool(slot, config);
-    state.lastNote = null;
-    this._arpState[slot] = state;
-  }
-
-  _stopArp(slot) {
-    const state = this._arpState[slot];
-    if (!state) return;
-    state.active = false;
-    if (state.timer) {
-      clearInterval(state.timer);
-      state.timer = null;
-    }
-  }
-
-  getArpState(slot) {
-    return this._arpState[slot] || null;
-  }
-
-  processSensor(slot, sensorData) {
     const events = [];
-    const config = this._getConfig(slot);
-    const mode = config.mode || 'chaos';
-    const accelMag = this._calcAccelMag(sensorData.accel);
-    const accel = sensorData.accel || {};
-    const gyro = sensorData.gyro || {};
-    const orientation = sensorData.orientation || {};
+    const channel = this._getChannel(slot);
 
-    const channel = slot & 0x0f;
+    const newZone = this._getAccelXZone(accelX);
+    const prevState = this._lastNote[slot];
+    const prevToneMidi = prevState?.toneMidi;
+    const prevGateOpen = prevState?.gateOpen;
+    const now = Date.now();
 
-    if (mode === 'chaos') {
-      const threshold = config.noteThreshold || 15;
-      const beta = typeof orientation.b === 'number' ? orientation.b : 0;
-      const noteRaw = 36 + Math.floor((beta / 180) * 60);
-      const note = this._clamp(noteRaw, 0, 127);
+    const gateOpen = this._isGateOpenHysteresis(orientA, this._gateState[slot]);
+    this._gateState[slot] = gateOpen;
 
-      if (accelMag > threshold) {
-        const velocityRaw = this._mapRange(accelMag, 15, 30, 40, 127);
-        const velocity = this._clamp(Math.round(velocityRaw), 0, 127);
-        events.push({ type: 'noteon', channel, note, velocity });
-      }
-    } else if (mode === 'scale') {
-      const threshold = config.noteThreshold || 15;
-      const beta = typeof orientation.b === 'number' ? orientation.b : 0;
-      const normalized = beta / 180;
-      const scaleNotes = this.getScaleNotes(config.scale, config.key, config.octave);
-      const degree = this._sensorToScaleDegree(normalized, scaleNotes.length);
-      const note = this._clamp(scaleNotes[degree], config.noteRange[0], config.noteRange[1]);
+    const volume = this._mapVolume(orientB);
 
-      if (accelMag > threshold) {
-        const velocityRaw = this._mapRange(accelMag, 15, 30, 40, 127);
-        const velocity = this._clamp(Math.round(velocityRaw), 0, 127);
-        events.push({ type: 'noteon', channel, note, velocity });
-      }
-    } else if (mode === 'theremin') {
-      const threshold = config.noteThreshold || 15;
-      const releaseThreshold = threshold * 0.67;
-      const beta = typeof orientation.b === 'number' ? orientation.b : 0;
-      const normalized = beta / 180;
-      const scaleNotes = this.getScaleNotes(config.scale, config.key, config.octave);
-      const floatDegree = normalized * scaleNotes.length;
-      const degreeIndex = Math.min(Math.floor(floatDegree), scaleNotes.length - 1);
-      const fractional = floatDegree - degreeIndex;
-      const baseNote = this._clamp(scaleNotes[degreeIndex] || scaleNotes[0], config.noteRange[0], config.noteRange[1]);
-      const pitchBend = 8192 + Math.floor(fractional * 8191);
-      const held = this._heldNotes[slot];
+    const progDegree = this._getProgressionDegree(accelY);
+    const rootOffset = [0, 5, 7, 9][progDegree] || 0;
 
-      events.push({ type: 'pitchbend', channel, value: pitchBend });
+    const semitones = [0, 4, null, 10, 14];
+    const toneOffset = semitones[newZone];
 
-      const gyroA = typeof gyro.a === 'number' ? gyro.a : 0;
-      const cc11 = this._sensorToCC(gyroA, -2000, 2000);
-      events.push({ type: 'cc', channel, cc: 11, value: cc11 });
+    const keyRoot = KEY_TO_ROOT[config.key] || 0;
+    const baseOctave = (config.octave + 1) * 12;
+    const rootMidi = baseOctave + keyRoot + rootOffset;
+    const toneMidi = toneOffset !== null ? rootMidi + toneOffset : null;
 
-      if (accelMag > threshold && (!held || held.note !== baseNote)) {
-        if (held) events.push({ type: 'noteoff', channel, note: held.note, velocity: 0 });
-        events.push({ type: 'noteon', channel, note: baseNote, velocity: 80 });
-        this._heldNotes[slot] = { note: baseNote, pitchBend };
-      } else if (accelMag < releaseThreshold && held) {
-        events.push({ type: 'noteoff', channel, note: held.note, velocity: 0 });
-        this._heldNotes[slot] = null;
-      }
-    } else if (mode === 'arp') {
-      const threshold = config.noteThreshold || 15;
-      const releaseThreshold = threshold * 0.67;
-      const beta = typeof orientation.b === 'number' ? orientation.b : 0;
-      const accelY = typeof accel.y === 'number' ? accel.y : 0;
-      const gyroA = typeof gyro.a === 'number' ? gyro.a : 0;
-      const gamma = typeof orientation.g === 'number' ? orientation.g : 0;
-      const bpm = config.bpm || 120;
+    const hasActiveNote = prevToneMidi !== undefined && prevToneMidi !== null;
 
-      const rateMs = this._calcArpRate(beta, bpm);
-      const pattern = this._calcArpPattern(accelY);
-      const octaveRange = this._calcArpOctaveRange(gyroA);
-      const gate = this._calcArpGate(gamma);
+    if (newZone === 2 && hasActiveNote && !this._fadeState[slot]) {
+      this._fadeState[slot] = { startTime: now, startVolume: volume, note: prevToneMidi };
+    }
 
-      if (!this._arpState[slot]) {
-        this._arpState[slot] = { active: false };
-      }
-      const state = this._arpState[slot];
-      state.pattern = pattern;
-      state.rateMs = rateMs;
-      state.octaveRange = octaveRange;
-      state.gate = gate;
-      state.notePool = this._buildArpNotePool(slot, config);
-
-      if (accelMag > threshold && !state.active) {
-        this._startArp(slot, config);
-        const firstNote = state.notePool[0];
-        if (firstNote !== undefined && firstNote !== null) {
-          events.push({ type: 'noteon', channel, note: firstNote, velocity: 75 });
-          state.step = 0;
-          state.lastNote = firstNote;
+    if (this._fadeState[slot]) {
+      if (newZone !== 2) {
+        this._fadeState[slot] = null;
+      } else {
+        const elapsed = now - this._fadeState[slot].startTime;
+        if (elapsed < 200) {
+          const fadeVol = Math.round(this._mapRange(elapsed, 0, 200, this._fadeState[slot].startVolume, 0));
+          events.push({ type: 'cc', channel, cc: 11, value: this._clamp(fadeVol, 0, 127) });
+        } else {
+          events.push({ type: 'noteoff', channel, note: this._fadeState[slot].note, velocity: 0 });
+          this._fadeState[slot] = null;
+          this._lastNote[slot] = { zone: 2, toneMidi: null, gateOpen: false };
         }
-      } else if (accelMag < releaseThreshold && state.active) {
-        this._stopArp(slot);
-        if (state.lastNote !== null) {
-          events.push({ type: 'noteoff', channel, note: state.lastNote, velocity: 0 });
-          state.lastNote = null;
+        events.push({ type: 'cc', channel, cc: 1, value: this._sensorToCC(accelZ, -12, 12) });
+        events.push({ type: 'cc', channel, cc: 2, value: this._sensorToCC(accelY, -12, 12) });
+        events.push({ type: 'cc', channel, cc: 11, value: this._clamp(volume, 40, 100) });
+        events.push({ type: 'pitchbend', channel, value: this._sensorToPitchBend(gyroA, -2000, 2000) });
+        return events;
+      }
+    }
+
+    if (newZone !== 2 && toneMidi !== null) {
+      if (newZone !== this._lastNote[slot]?.zone) {
+        if (hasActiveNote) {
+          events.push({ type: 'noteoff', channel, note: prevToneMidi, velocity: 0 });
+          this._lastNote[slot] = { zone: this._lastNote[slot]?.zone, toneMidi: null, gateOpen: false };
+        }
+
+        if (!this._pendingZone[slot] || this._pendingZone[slot].zone !== newZone) {
+          this._pendingZone[slot] = { zone: newZone, toneMidi, startTime: now };
         }
       }
-    } else if (mode === 'chord') {
-      const threshold = config.noteThreshold || 15;
-      const releaseThreshold = threshold * 0.67;
-      const beta = typeof orientation.b === 'number' ? orientation.b : 0;
-      const normalized = beta / 180;
-      const degree = this._clamp(Math.floor(normalized * 7), 0, 6);
-      const accelX = typeof accel.x === 'number' ? Math.abs(accel.x) : 0;
-      const inversion = this._clamp(Math.floor(accelX / 3.5), 0, 2);
-      const gyroZ = typeof gyro.g === 'number' ? Math.abs(gyro.g) : 0;
-      const extension = this._clamp(Math.floor(gyroZ / 500), 0, 4);
 
-      const chordDef = CHORD_VOICINGS[degree];
-      const keyRoot = (KEY_TO_ROOT[config.key] !== undefined ? KEY_TO_ROOT[config.key] : 0);
-      const baseOctave = (config.octave + 1) * 12;
-
-      const allIntervals = [...chordDef.intervals, ...(chordDef.extensions[extension] || [])];
-
-      let chordNotes = allIntervals.map(interval => {
-        return this._clamp(baseOctave + keyRoot + interval, 0, 127);
-      });
-
-      for (let i = 0; i < inversion; i++) {
-        chordNotes.push(chordNotes.shift());
-      }
-
-      const held = this._heldChordNotes[slot];
-
-      if (accelMag > threshold) {
-        if (held) {
-          for (const note of held) {
-            events.push({ type: 'noteoff', channel, note, velocity: 0 });
+      if (this._pendingZone[slot]) {
+        const pending = this._pendingZone[slot];
+        if (newZone === pending.zone && now - pending.startTime >= 250) {
+          if (gateOpen) {
+            events.push({ type: 'noteon', channel, note: pending.toneMidi, velocity: volume });
           }
+          this._lastNote[slot] = { zone: newZone, toneMidi: pending.toneMidi, gateOpen };
+          delete this._pendingZone[slot];
+        } else if (newZone !== pending.zone) {
+          delete this._pendingZone[slot];
         }
-        for (const note of chordNotes) {
-          events.push({ type: 'noteon', channel, note, velocity: 70 });
-        }
-        this._heldChordNotes[slot] = chordNotes;
-      } else if (accelMag < releaseThreshold && held) {
-        for (const note of held) {
-          events.push({ type: 'noteoff', channel, note, velocity: 0 });
-        }
-        this._heldChordNotes[slot] = null;
       }
     }
 
-    const ccMappings = [
-      { cc: 1, value: this._sensorToCC(accel.x, -12, 12) },
-      { cc: 2, value: this._sensorToCC(accel.y, -12, 12) },
-      { cc: 3, value: this._sensorToCC(accel.z, -12, 12) },
-      { cc: 4, value: this._sensorToCC(gyro.a, -2000, 2000) },
-      { cc: 5, value: this._sensorToCC(gyro.b, -2000, 2000) },
-      { cc: 6, value: this._sensorToCC(gyro.g, -2000, 2000) },
-      { cc: 7, value: this._sensorToCC(orientation.a, 0, 360) },
-      { cc: 8, value: this._sensorToCC(orientation.b, -180, 180) },
-      { cc: 9, value: this._sensorToCC(orientation.g, -90, 90) }
-    ];
-
-    for (const mapping of ccMappings) {
-      events.push({ type: 'cc', channel, cc: mapping.cc, value: mapping.value });
+    if (gateOpen !== prevGateOpen && hasActiveNote && toneMidi === prevToneMidi) {
+      if (!gateOpen) {
+        events.push({ type: 'noteoff', channel, note: prevToneMidi, velocity: 0 });
+      } else {
+        events.push({ type: 'noteon', channel, note: prevToneMidi, velocity: volume });
+      }
+      if (this._lastNote[slot]) {
+        this._lastNote[slot] = { ...this._lastNote[slot], gateOpen };
+      }
     }
 
-    const pitchValue = this._sensorToPitchBend(gyro.a, -2000, 2000);
-    events.push({ type: 'pitchbend', channel, value: pitchValue });
+    events.push({ type: 'cc', channel, cc: 1, value: this._sensorToCC(accelZ, -12, 12) });
+    events.push({ type: 'cc', channel, cc: 2, value: this._sensorToCC(accelY, -12, 12) });
+    events.push({ type: 'cc', channel, cc: 11, value: volume });
+
+    const pitchBend = this._sensorToPitchBend(gyroA, -2000, 2000);
+    events.push({ type: 'pitchbend', channel, value: pitchBend });
 
     return events;
   }
+
+  _processDrums(slot, data, config) {
+    const events = [];
+    const channel = this._getChannel(slot);
+    const prev = this._prevSensor[slot] || {};
+
+    const accelX = data.accel?.x ?? 0;
+    const accelY = data.accel?.y ?? 0;
+    const accelZ = data.accel?.z ?? 0;
+    const prevAccelX = prev.accel?.x ?? 0;
+    const prevAccelY = prev.accel?.y ?? 0;
+    const prevAccelZ = prev.accel?.z ?? 0;
+
+    const deltaX = Math.abs(accelX - prevAccelX);
+    const deltaY = Math.abs(accelY - prevAccelY);
+    const deltaZ = Math.abs(accelZ - prevAccelZ);
+
+    const now = Date.now();
+
+    if (deltaX > 8 && accelX > prevAccelX && now - (this._lastKick[slot] || 0) > 100) {
+      const vel = Math.min(127, Math.round(deltaX * 6));
+      events.push({ type: 'noteon', channel, note: 36, velocity: vel });
+      this._lastKick[slot] = now;
+    }
+
+    if (deltaY > 8 && accelY > prevAccelY && now - (this._lastSnare[slot] || 0) > 80) {
+      const vel = Math.min(127, Math.round(deltaY * 6));
+      events.push({ type: 'noteon', channel, note: 38, velocity: vel });
+      this._lastSnare[slot] = now;
+    }
+
+    if (deltaZ > 8 && accelZ > prevAccelZ && now - (this._lastCrash[slot] || 0) > 200) {
+      const vel = Math.min(127, Math.round(deltaZ * 6));
+      events.push({ type: 'noteon', channel, note: 49, velocity: vel });
+      this._lastCrash[slot] = now;
+    }
+
+    const gyroA = data.gyro?.a ?? 0;
+    const gyroB = data.gyro?.b ?? 0;
+    const gyroG = data.gyro?.g ?? 0;
+    const orientA = data.orientation?.a ?? 0;
+    const orientB = data.orientation?.b ?? 0;
+    const orientG = data.orientation?.g ?? 0;
+
+    const hhOpen = this._sensorToCC(gyroA, -2000, 2000);
+    events.push({ type: 'cc', channel, cc: 4, value: hhOpen });
+
+    const tomNote = gyroB < -30 ? 47 : gyroB < 30 ? 48 : 50;
+    const deltaGyroB = Math.abs(gyroB - (prev.gyro?.b ?? 0));
+    if (deltaGyroB > 50 && now - (this._lastTom[slot] || 0) > 120) {
+      const tomVel = Math.min(127, Math.round(deltaGyroB * 1.5));
+      events.push({ type: 'noteon', channel, note: tomNote, velocity: tomVel });
+      this._lastTom[slot] = now;
+    }
+
+    const patternZone = Math.floor(((orientA % 360) + 360) % 360 / 90) % 4;
+
+    events.push({ type: 'cc', channel, cc: 1, value: this._sensorToCC(accelZ, -12, 12) });
+    events.push({ type: 'cc', channel, cc: 7, value: patternZone * 42 });
+
+    this._prevSensor[slot] = { ...data };
+
+    return events;
+  }
+
+  _processGestureCanvas(slot, data, config) {
+    const events = [];
+    const channel = this._getChannel(slot);
+
+    const accelX = data.accel?.x ?? 0;
+    const accelY = data.accel?.y ?? 0;
+    const accelZ = data.accel?.z ?? 0;
+    const gyroA = data.gyro?.a ?? 0;
+    const gyroB = data.gyro?.b ?? 0;
+    const gyroG = data.gyro?.g ?? 0;
+    const orientA = data.orientation?.a ?? 0;
+
+    const speed = Math.sqrt(gyroA * gyroA + gyroB * gyroB + gyroG * gyroG);
+    const speedCC = Math.min(127, Math.round(speed / 2000 * 127));
+    events.push({ type: 'cc', channel, cc: 1, value: speedCC });
+    events.push({ type: 'cc', channel, cc: 74, value: speedCC });
+
+    const direction = Math.atan2(gyroB, gyroA);
+    const panCC = Math.round(((direction + Math.PI) / (Math.PI * 2)) * 127);
+    events.push({ type: 'cc', channel, cc: 10, value: panCC });
+
+    const mag = Math.sqrt(accelX * accelX + accelY * accelY + accelZ * accelZ);
+    const size = Math.max(0, mag - 9.8);
+    const reverbCC = Math.min(127, Math.round(size / 20 * 127));
+    events.push({ type: 'cc', channel, cc: 91, value: reverbCC });
+    events.push({ type: 'cc', channel, cc: 93, value: reverbCC });
+
+    const prevDir = this._prevDirection[slot] || 0;
+    const complexity = Math.abs(direction - prevDir);
+    this._prevDirection[slot] = direction;
+    const complexityCC = Math.min(127, Math.round(complexity / Math.PI * 127));
+    events.push({ type: 'cc', channel, cc: 71, value: complexityCC });
+    events.push({ type: 'cc', channel, cc: 16, value: complexityCC });
+
+    if (!this._gyroBuffer[slot]) this._gyroBuffer[slot] = [];
+    this._gyroBuffer[slot].push({ a: gyroA, b: gyroB, time: Date.now() });
+    this._gyroBuffer[slot] = this._gyroBuffer[slot].filter(s => Date.now() - s.time < 500);
+
+    let circularity = 0;
+    if (this._gyroBuffer[slot].length > 10) {
+      const meanA = this._gyroBuffer[slot].reduce((s, v) => s + v.a, 0) / this._gyroBuffer[slot].length;
+      const meanB = this._gyroBuffer[slot].reduce((s, v) => s + v.b, 0) / this._gyroBuffer[slot].length;
+      let num = 0, denA = 0, denB = 0;
+      for (const s of this._gyroBuffer[slot]) {
+        const da = s.a - meanA;
+        const db = s.b - meanB;
+        num += da * db;
+        denA += da * da;
+        denB += db * db;
+      }
+      const denom = Math.sqrt(denA * denB);
+      if (denom > 0) {
+        const r = num / denom;
+        circularity = Math.round(this._mapRange(this._clamp(r, -1, 1), -1, 1, 0, 127));
+      }
+    }
+    events.push({ type: 'cc', channel, cc: 17, value: circularity });
+
+    const scene = Math.floor((((orientA % 360) + 360) % 360) / 90) % 4;
+    events.push({ type: 'cc', channel, cc: 7, value: scene * 42 });
+
+    return events;
+  }
+
+  processSensor(slot, sensorData) {
+    const config = this._getConfig(slot);
+    const mode = config.mode || 'chordspace';
+
+    switch (mode) {
+      case 'chordspace':
+        return this._processChordSpace(slot, sensorData, config);
+      case 'drums':
+        return this._processDrums(slot, sensorData, config);
+      case 'gesturecanvas':
+        return this._processGestureCanvas(slot, sensorData, config);
+      default:
+        return this._processChordSpace(slot, sensorData, config);
+    }
+  }
 }
 
-module.exports = { MidiMapper, SCALES, CHORD_VOICINGS };
+module.exports = { MidiMapper, KEY_TO_ROOT };
