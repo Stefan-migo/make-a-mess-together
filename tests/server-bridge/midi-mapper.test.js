@@ -7,499 +7,520 @@ describe('MidiMapper', () => {
     mapper = new MidiMapper();
   });
 
-  describe('T009: Scales library', () => {
-    const expectedScales = {
-      chromatic: { length: 12, first: 0, last: 11 },
-      major: { length: 7, first: 0, last: 11 },
-      minor: { length: 7, first: 0, last: 10 },
-      pentatonic: { length: 5, first: 0, last: 9 },
-      blues: { length: 6, first: 0, last: 10 },
-      wholeTone: { length: 6, first: 0, last: 10 },
-      dorian: { length: 7, first: 0, last: 10 },
-      mixolydian: { length: 7, first: 0, last: 10 },
-      lydian: { length: 7, first: 0, last: 11 },
-      phrygian: { length: 7, first: 0, last: 10 },
-      locrian: { length: 7, first: 0, last: 10 },
-      augmented: { length: 6, first: 0, last: 11 },
-      diminished: { length: 8, first: 0, last: 11 }
-    };
-
-    const SCALES = require('../../server-bridge/midi-mapper').SCALES || {};
-
-    test('has all 13 scales', () => {
-      const scaleNames = Object.keys(SCALES);
-      expect(scaleNames.sort()).toEqual(Object.keys(expectedScales).sort());
-    });
-
-    test.each(Object.keys(expectedScales))('%s has correct properties', (name) => {
-      const scale = SCALES[name];
-      const expected = expectedScales[name];
-      expect(scale).toBeDefined();
-      expect(Array.isArray(scale)).toBe(true);
-      expect(scale.length).toBe(expected.length);
-      expect(scale[0]).toBe(expected.first);
-      expect(scale[scale.length - 1]).toBe(expected.last);
-      expect(scale.every((v) => v >= 0 && v <= 11)).toBe(true);
-      expect(scale.every((v, i) => i === 0 || v > scale[i - 1])).toBe(true);
-    });
-  });
-
-  describe('T010: getScaleNotes', () => {
-    test('C major returns correct MIDI notes', () => {
-      const notes = mapper.getScaleNotes('major', 'C', 2);
-      expect(notes).toEqual([36, 38, 40, 41, 43, 45, 47]);
-    });
-
-    test('D major returns correct MIDI notes', () => {
-      const notes = mapper.getScaleNotes('major', 'D', 2);
-      expect(notes).toEqual([38, 40, 42, 43, 45, 47, 49]);
-    });
-
-    test('returns empty array for unknown scale (falls back to pentatonic)', () => {
-      const notes = mapper.getScaleNotes('nonexistent', 'C', 2);
-      expect(notes.length).toBeGreaterThan(0);
-    });
-
-    test('unknown key defaults to C', () => {
-      const notes = mapper.getScaleNotes('major', 'XYZ', 2);
-      expect(notes).toEqual([36, 38, 40, 41, 43, 45, 47]);
-    });
-  });
-
-  describe('T011: _sensorToScaleDegree', () => {
-    test('value 0 maps to degree 0', () => {
-      expect(mapper._sensorToScaleDegree(0, 7)).toBe(0);
-    });
-
-    test('value 1 maps to last degree', () => {
-      expect(mapper._sensorToScaleDegree(1, 7)).toBe(6);
-    });
-
-    test('value 0.5 maps to middle degree', () => {
-      expect(mapper._sensorToScaleDegree(0.5, 7)).toBe(3);
-    });
-
-    test('value just below 1 maps correctly', () => {
-      expect(mapper._sensorToScaleDegree(0.99, 5)).toBe(4);
-    });
-  });
-
-  describe('T012: Note clamped to MIDI range', () => {
-    test('_clamp keeps values within MIDI range', () => {
-      expect(mapper._clamp(60, 0, 127)).toBe(60);
-      expect(mapper._clamp(-10, 0, 127)).toBe(0);
-      expect(mapper._clamp(200, 0, 127)).toBe(127);
-    });
-  });
-
-  describe('T015: Chaos mode — note mapping', () => {
-    test('orientation/beta 0 maps to note 36', () => {
-      const events = mapper.processSensor(0, {
-        accel: { x: 0, y: 0, z: 0 },
-        gyro: { a: 0, b: 0, g: 0 },
-        orientation: { a: 0, b: 0, g: 0 }
-      });
-      const noteOns = events.filter(e => e.type === 'noteon');
-      expect(noteOns.length).toBeGreaterThanOrEqual(0);
-      if (noteOns.length > 0) {
-        expect(noteOns[0].note).toBeGreaterThanOrEqual(36);
-        expect(noteOns[0].note).toBeLessThanOrEqual(96);
-      }
-    });
-
-    test('orientation/beta 180 maps to note near 96', () => {
-      const events = mapper.processSensor(0, {
-        accel: { x: 0, y: 20, z: 0 },
-        gyro: { a: 0, b: 0, g: 0 },
-        orientation: { a: 0, b: 180, g: 0 }
-      });
-      const noteOns = events.filter(e => e.type === 'noteon');
-      expect(noteOns.length).toBeGreaterThan(0);
-      expect(noteOns[0].note).toBeGreaterThanOrEqual(90);
-    });
-  });
-
-  describe('T016: Chaos mode — threshold below', () => {
-    test('accelMag below threshold produces no note events', () => {
-      const events = mapper.processSensor(0, {
-        accel: { x: 0, y: 0, z: 0 },
-        gyro: { a: 0, b: 0, g: 0 },
-        orientation: { a: 0, b: 0, g: 0 }
-      });
-      const noteOns = events.filter(e => e.type === 'noteon');
-      expect(noteOns).toHaveLength(0);
-    });
-
-    test('accelMag threshold = 15, value 10 produces no note', () => {
-      const events = mapper.processSensor(0, {
-        accel: { x: 0, y: 10, z: 0 },
-        gyro: { a: 0, b: 0, g: 0 },
-        orientation: { a: 0, b: 90, g: 0 }
-      });
-      const noteOns = events.filter(e => e.type === 'noteon');
-      expect(noteOns).toHaveLength(0);
-    });
-  });
-
-  describe('T017: Chaos mode — threshold above', () => {
-    test('accelMag above threshold produces Note On event', () => {
-      const events = mapper.processSensor(0, {
-        accel: { x: 10, y: 10, z: 10 },
-        gyro: { a: 0, b: 0, g: 0 },
-        orientation: { a: 0, b: 90, g: 0 }
-      });
-      const noteOns = events.filter(e => e.type === 'noteon');
-      expect(noteOns.length).toBeGreaterThan(0);
-      expect(noteOns[0].type).toBe('noteon');
-      expect(noteOns[0].channel).toBe(0);
-    });
-
-    test('velocity maps accelMag 15→40 and 30→127', () => {
-      const events1 = mapper.processSensor(0, {
-        accel: { x: 15, y: 0, z: 0 },
-        gyro: { a: 0, b: 0, g: 0 },
-        orientation: { a: 0, b: 90, g: 0 }
-      });
-      const noteOns1 = events1.filter(e => e.type === 'noteon');
-      if (noteOns1.length > 0) {
-        expect(noteOns1[0].velocity).toBe(40);
-      }
-
-      const events2 = mapper.processSensor(0, {
-        accel: { x: 30, y: 0, z: 0 },
-        gyro: { a: 0, b: 0, g: 0 },
-        orientation: { a: 0, b: 90, g: 0 }
-      });
-      const noteOns2 = events2.filter(e => e.type === 'noteon');
-      if (noteOns2.length > 0) {
-        expect(noteOns2[0].velocity).toBe(127);
-      }
-    });
-  });
-
-  describe('CC mapping', () => {
-    test('all 9 CC events are produced', () => {
-      const events = mapper.processSensor(0, {
-        accel: { x: 0, y: 0, z: 0 },
-        gyro: { a: 0, b: 0, g: 0 },
-        orientation: { a: 0, b: 0, g: 0 }
-      });
-      const ccEvents = events.filter(e => e.type === 'cc');
-      expect(ccEvents).toHaveLength(9);
-    });
-
-    test('CC events have correct CC numbers 1-9', () => {
-      const events = mapper.processSensor(0, {
-        accel: { x: 1, y: 2, z: 3 },
-        gyro: { a: 4, b: 5, g: 6 },
-        orientation: { a: 7, b: 8, g: 9 }
-      });
-      const ccEvents = events.filter(e => e.type === 'cc').sort((a, b) => a.cc - b.cc);
-      expect(ccEvents.map(e => e.cc)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
-    });
-
-    test('CC values clamped to 0-127', () => {
-      const events = mapper.processSensor(0, {
-        accel: { x: 999, y: -999, z: 0 },
-        gyro: { a: 0, b: 0, g: 0 },
-        orientation: { a: 0, b: 0, g: 0 }
-      });
-      const ccEvents = events.filter(e => e.type === 'cc');
-      expect(ccEvents.find(e => e.cc === 1).value).toBeGreaterThanOrEqual(0);
-      expect(ccEvents.find(e => e.cc === 1).value).toBeLessThanOrEqual(127);
-      expect(ccEvents.find(e => e.cc === 2).value).toBeGreaterThanOrEqual(0);
-      expect(ccEvents.find(e => e.cc === 2).value).toBeLessThanOrEqual(127);
-    });
-  });
-
-  describe('Pitch bend', () => {
-    test('gyro/a produces pitch bend event', () => {
-      const events = mapper.processSensor(0, {
-        accel: { x: 0, y: 0, z: 0 },
-        gyro: { a: 500, b: 0, g: 0 },
-        orientation: { a: 0, b: 0, g: 0 }
-      });
-      const pbEvents = events.filter(e => e.type === 'pitchbend');
-      expect(pbEvents.length).toBeGreaterThan(0);
-      expect(pbEvents[0].channel).toBe(0);
-      expect(pbEvents[0].value).toBeGreaterThanOrEqual(0);
-      expect(pbEvents[0].value).toBeLessThanOrEqual(16383);
-    });
-  });
-
-  describe('T020: Scale mode — note quantized to selected scale', () => {
-    test('C major pentatonic at beta=0 maps to C (note 48 in octave 3)', () => {
-      mapper.setGlobalConfig({ mode: 'scale', scale: 'pentatonic', key: 'C', octave: 3 });
-      const events = mapper.processSensor(0, {
-        accel: { x: 20, y: 0, z: 0 },
-        gyro: { a: 0, b: 0, g: 0 },
-        orientation: { a: 0, b: 0, g: 0 }
-      });
-      const noteOns = events.filter(e => e.type === 'noteon');
-      expect(noteOns.length).toBeGreaterThan(0);
-      expect(noteOns[0].note).toBe(48);
-    });
-
-    test('beta=180 maps to last degree of pentatonic (D in C pentatonic → note 57)', () => {
-      mapper.setGlobalConfig({ mode: 'scale', scale: 'pentatonic', key: 'C', octave: 3 });
-      const events = mapper.processSensor(0, {
-        accel: { x: 20, y: 0, z: 0 },
-        gyro: { a: 0, b: 0, g: 0 },
-        orientation: { a: 0, b: 180, g: 0 }
-      });
-      const noteOns = events.filter(e => e.type === 'noteon');
-      expect(noteOns.length).toBeGreaterThan(0);
-      expect(noteOns[0].note).toBe(57);
-    });
-
-    test('accelMag below threshold produces no note events in scale mode', () => {
-      mapper.setGlobalConfig({ mode: 'scale', scale: 'pentatonic', key: 'C' });
-      const events = mapper.processSensor(0, {
-        accel: { x: 0, y: 0, z: 0 },
-        gyro: { a: 0, b: 0, g: 0 },
-        orientation: { a: 0, b: 90, g: 0 }
-      });
-      const noteOns = events.filter(e => e.type === 'noteon');
-      expect(noteOns).toHaveLength(0);
-    });
-  });
-
-  describe('T021: Key transposition — C major gives different notes than D major', () => {
-    test('C major and D major produce different notes for same sensor input', () => {
-      mapper.setGlobalConfig({ mode: 'scale', scale: 'major', key: 'C', octave: 3 });
-      const eventsC = mapper.processSensor(0, {
-        accel: { x: 20, y: 0, z: 0 },
-        gyro: { a: 0, b: 0, g: 0 },
-        orientation: { a: 0, b: 90, g: 0 }
-      });
-      const noteOnsC = eventsC.filter(e => e.type === 'noteon');
-
-      mapper.setGlobalConfig({ mode: 'scale', scale: 'major', key: 'D', octave: 3 });
-      const eventsD = mapper.processSensor(0, {
-        accel: { x: 20, y: 0, z: 0 },
-        gyro: { a: 0, b: 0, g: 0 },
-        orientation: { a: 0, b: 90, g: 0 }
-      });
-      const noteOnsD = eventsD.filter(e => e.type === 'noteon');
-
-      expect(noteOnsC.length).toBeGreaterThan(0);
-      expect(noteOnsD.length).toBeGreaterThan(0);
-      expect(noteOnsC[0].note).not.toBe(noteOnsD[0].note);
-    });
-  });
-
-  describe('T022: Scale mode — note is within selected scale notes', () => {
-    test('note produced by scale mode is always in the selected scale', () => {
-      mapper.setGlobalConfig({ mode: 'scale', scale: 'blues', key: 'C', octave: 3 });
-      const scaleNotes = mapper.getScaleNotes('blues', 'C', 3);
-
-      for (let beta = 0; beta <= 180; beta += 15) {
-        const events = mapper.processSensor(0, {
-          accel: { x: 20, y: 0, z: 0 },
-          gyro: { a: 0, b: 0, g: 0 },
-          orientation: { a: 0, b: beta, g: 0 }
-        });
-        const noteOns = events.filter(e => e.type === 'noteon');
-        if (noteOns.length > 0) {
-          expect(scaleNotes).toContain(noteOns[0].note);
-        }
-      }
-    });
-  });
-
   describe('setGlobalConfig', () => {
     test('updates global config', () => {
-      mapper.setGlobalConfig({ mode: 'scale', scale: 'major' });
-      expect(mapper.globalConfig.mode).toBe('scale');
-      expect(mapper.globalConfig.scale).toBe('major');
+      mapper.setGlobalConfig({ mode: 'gesturecanvas', key: 'D' });
+      expect(mapper.globalConfig.mode).toBe('gesturecanvas');
+      expect(mapper.globalConfig.key).toBe('D');
     });
   });
 
   describe('setSlotConfig', () => {
     test('sets per-slot override', () => {
-      mapper.setSlotConfig(5, { mode: 'scale' });
+      mapper.setSlotConfig(5, { mode: 'drums' });
       expect(mapper.slotConfigs[5]).toBeDefined();
-      expect(mapper.slotConfigs[5].mode).toBe('scale');
+      expect(mapper.slotConfigs[5].mode).toBe('drums');
     });
   });
 
-  describe('Theremin mode', () => {
-    beforeEach(() => {
-      mapper.setGlobalConfig({ mode: 'theremin', scale: 'pentatonic', key: 'C', octave: 3 });
+  describe('Utility methods', () => {
+    test('_clamp keeps values within range', () => {
+      expect(mapper._clamp(60, 0, 127)).toBe(60);
+      expect(mapper._clamp(-10, 0, 127)).toBe(0);
+      expect(mapper._clamp(200, 0, 127)).toBe(127);
     });
 
-    test('T023: sends pitch bend for smooth transitions', () => {
-      const events = mapper.processSensor(0, {
-        accel: { x: 9.8, y: 0, z: 0 },
-        gyro: { a: 0, b: 0, g: 0 },
-        orientation: { a: 0, b: 45, g: 0 }
-      });
-      const pbEvents = events.filter(e => e.type === 'pitchbend');
-      expect(pbEvents.length).toBeGreaterThanOrEqual(1);
-      expect(pbEvents[0].value).toBeGreaterThan(8192);
-      expect(pbEvents[0].value).toBeLessThanOrEqual(16383);
-    });
-
-    test('T024: note on/off controlled by accelMag with hysteresis', () => {
-      let events = mapper.processSensor(0, {
-        accel: { x: 0, y: 0, z: 20 },
-        gyro: { a: 0, b: 0, g: 0 },
-        orientation: { a: 0, b: 90, g: 0 }
-      });
-      let noteOns = events.filter(e => e.type === 'noteon');
-      expect(noteOns.length).toBe(1);
-
-      events = mapper.processSensor(0, {
-        accel: { x: 0, y: 0, z: 0 },
-        gyro: { a: 0, b: 0, g: 0 },
-        orientation: { a: 0, b: 90, g: 0 }
-      });
-      let noteOffs = events.filter(e => e.type === 'noteoff');
-      expect(noteOffs.length).toBe(1);
-    });
-
-    test('T025: CC 11 sent from gyro/a for volume/expression', () => {
-      const events = mapper.processSensor(0, {
-        accel: { x: 9.8, y: 0, z: 0 },
-        gyro: { a: 1000, b: 0, g: 0 },
-        orientation: { a: 0, b: 0, g: 0 }
-      });
-      const cc11Events = events.filter(e => e.type === 'cc' && e.cc === 11);
-      expect(cc11Events.length).toBe(1);
-      expect(cc11Events[0].value).toBeGreaterThanOrEqual(0);
-      expect(cc11Events[0].value).toBeLessThanOrEqual(127);
-    });
-  });
-
-  describe('Chord mode', () => {
-    beforeEach(() => {
-      mapper.setGlobalConfig({ mode: 'chord', scale: 'major', key: 'C', octave: 3 });
-    });
-
-    test('T026: chord mode outputs 3-4 simultaneous notes', () => {
-      const events = mapper.processSensor(0, {
-        accel: { x: 5, y: 0, z: 15 },
-        gyro: { a: 0, b: 0, g: 0 },
-        orientation: { a: 0, b: 45, g: 0 }
-      });
-      const noteOns = events.filter(e => e.type === 'noteon');
-      expect(noteOns.length).toBeGreaterThanOrEqual(3);
-    });
-
-    test('T027: chord degree maps to correct chord type', () => {
-      const events = mapper.processSensor(0, {
-        accel: { x: 5, y: 0, z: 15 },
-        gyro: { a: 0, b: 0, g: 0 },
-        orientation: { a: 0, b: 0, g: 0 }
-      });
-      const noteOns = events.filter(e => e.type === 'noteon');
-      expect(noteOns.length).toBe(3);
-      const notes = noteOns.map(e => e.note).sort();
-      expect(notes).toContain(48);
-      expect(notes).toContain(52);
-      expect(notes).toContain(55);
-    });
-
-    test('T028a: inversion changes note order', () => {
-      const events = mapper.processSensor(0, {
-        accel: { x: 9, y: 0, z: 15 },
-        gyro: { a: 0, b: 0, g: 0 },
-        orientation: { a: 0, b: 0, g: 0 }
-      });
-      const noteOns = events.filter(e => e.type === 'noteon');
-      expect(noteOns.length).toBe(3);
-    });
-
-    test('T028b: extension adds more notes', () => {
-      const events = mapper.processSensor(0, {
-        accel: { x: 5, y: 0, z: 15 },
-        gyro: { a: 0, b: 0, g: 1900 },
-        orientation: { a: 0, b: 0, g: 0 }
-      });
-      const noteOns = events.filter(e => e.type === 'noteon');
-      expect(noteOns.length).toBeGreaterThan(3);
-    });
-
-    test('T028c: chord releases on accelMag drop', () => {
-      mapper.processSensor(0, {
-        accel: { x: 5, y: 0, z: 15 },
-        gyro: { a: 0, b: 0, g: 0 },
-        orientation: { a: 0, b: 0, g: 0 }
-      });
-      const events = mapper.processSensor(0, {
-        accel: { x: 0, y: 0, z: 0 },
-        gyro: { a: 0, b: 0, g: 0 },
-        orientation: { a: 0, b: 0, g: 0 }
-      });
-      const noteOffs = events.filter(e => e.type === 'noteoff');
-      expect(noteOffs.length).toBeGreaterThanOrEqual(3);
-    });
-  });
-
-  describe('_mapRange', () => {
-    test('maps value from input range to output range', () => {
+    test('_mapRange maps value correctly', () => {
       expect(mapper._mapRange(5, 0, 10, 0, 127)).toBeCloseTo(63.5);
       expect(mapper._mapRange(0, 0, 10, 0, 127)).toBe(0);
       expect(mapper._mapRange(10, 0, 10, 0, 127)).toBe(127);
     });
+
+    test('_calcAccelMag computes magnitude', () => {
+      expect(mapper._calcAccelMag({ x: 3, y: 4, z: 0 })).toBe(5);
+      expect(mapper._calcAccelMag(null)).toBe(0);
+    });
+
+    test('_sensorToCC produces 0-127 range', () => {
+      const val = mapper._sensorToCC(500, -2000, 2000);
+      expect(val).toBeGreaterThanOrEqual(0);
+      expect(val).toBeLessThanOrEqual(127);
+    });
+
+    test('_sensorToPitchBend produces 0-16383 range', () => {
+      const val = mapper._sensorToPitchBend(0, -2000, 2000);
+      expect(val).toBe(8192);
+    });
   });
 
-  describe('T029-T031: Arp mode', () => {
+  describe('T-CHORD: ChordSpace mode', () => {
     beforeEach(() => {
-      mapper.setGlobalConfig({ mode: 'arp', scale: 'pentatonic', key: 'C', octave: 3, bpm: 120 });
+      jest.useFakeTimers();
+    });
+    afterEach(() => {
+      jest.useRealTimers();
     });
 
-    test('T029: arp rate calculated from orientation/beta', () => {
-      mapper.processSensor(0, {
-        accel: { x: 0, y: 0, z: 20 },
+    function confirmZone(slot, data) {
+      mapper.processSensor(slot, data);
+      jest.advanceTimersByTime(250);
+      return mapper.processSensor(slot, data);
+    }
+
+    test('T-CHORD-001: accel.x zone 0 (root) produces root tone', () => {
+      mapper.setSlotConfig(0, { mode: 'chordspace', key: 'C', octave: 3 });
+      const events = confirmZone(0, {
+        accel: { x: -10, y: -10, z: 0 },
+        gyro: { a: 0, b: 0, g: 0 },
+        orientation: { a: 90, b: 0, g: 0 }
+      });
+      expect(events.find(e => e.type === 'noteon').note).toBe(48);
+    });
+
+    test('T-CHORD-002: accel.x zone 1 (3rd) produces note +4 semitones', () => {
+      mapper.setSlotConfig(0, { mode: 'chordspace', key: 'C', octave: 3 });
+      const events = confirmZone(0, {
+        accel: { x: -5, y: -10, z: 0 },
+        gyro: { a: 0, b: 0, g: 0 },
+        orientation: { a: 90, b: 0, g: 0 }
+      });
+      expect(events.find(e => e.type === 'noteon').note).toBe(52);
+    });
+
+    test('T-CHORD-003: accel.x zone 3 (7th) produces note +10 semitones', () => {
+      mapper.setSlotConfig(0, { mode: 'chordspace', key: 'C', octave: 3 });
+      const events = confirmZone(0, {
+        accel: { x: 4, y: -10, z: 0 },
+        gyro: { a: 0, b: 0, g: 0 },
+        orientation: { a: 90, b: 0, g: 0 }
+      });
+      expect(events.find(e => e.type === 'noteon').note).toBe(58);
+    });
+
+    test('T-CHORD-004: accel.x zone 4 (tension) produces note +14 semitones', () => {
+      mapper.setSlotConfig(0, { mode: 'chordspace', key: 'C', octave: 3 });
+      const events = confirmZone(0, {
+        accel: { x: 10, y: -10, z: 0 },
+        gyro: { a: 0, b: 0, g: 0 },
+        orientation: { a: 90, b: 0, g: 0 }
+      });
+      expect(events.find(e => e.type === 'noteon').note).toBe(62);
+    });
+
+    test('T-CHORD-005: accel.y zones produce correct chord degrees', () => {
+      mapper.setSlotConfig(0, { mode: 'chordspace', key: 'C', octave: 3 });
+      const shared = { accel: { x: -10, y: -10, z: 0 }, gyro: { a: 0, b: 0, g: 0 }, orientation: { a: 90, b: 0, g: 0 } };
+
+      mapper._lastNote = {};
+      mapper._pendingZone = {};
+      const e0 = confirmZone(0, { ...shared, accel: { x: -10, y: -10, z: 0 } });
+      expect(e0.find(e => e.type === 'noteon').note).toBe(48);
+
+      mapper._lastNote = {};
+      mapper._pendingZone = {};
+      const e1 = confirmZone(0, { ...shared, accel: { x: -10, y: 0, z: 0 } });
+      expect(e1.find(e => e.type === 'noteon').note).toBe(53);
+
+      mapper._lastNote = {};
+      mapper._pendingZone = {};
+      const e2 = confirmZone(0, { ...shared, accel: { x: -10, y: 6, z: 0 } });
+      expect(e2.find(e => e.type === 'noteon').note).toBe(55);
+
+      mapper._lastNote = {};
+      mapper._pendingZone = {};
+      const e3 = confirmZone(0, { ...shared, accel: { x: -10, y: 10, z: 0 } });
+      expect(e3.find(e => e.type === 'noteon').note).toBe(57);
+    });
+
+    test('T-CHORD-006: Gate opens at 45°', () => {
+      mapper.setSlotConfig(0, { mode: 'chordspace', key: 'C', octave: 3 });
+      const events = confirmZone(0, {
+        accel: { x: -10, y: -10, z: 0 },
+        gyro: { a: 0, b: 0, g: 0 },
+        orientation: { a: 45, b: 0, g: 0 }
+      });
+      expect(events.find(e => e.type === 'noteon')).toBeTruthy();
+    });
+
+    test('T-CHORD-007: Gate closes at 40° with hysteresis', () => {
+      mapper.setSlotConfig(0, { mode: 'chordspace', key: 'C', octave: 3 });
+      const data90 = { accel: { x: -10, y: -10, z: 0 }, gyro: { a: 0, b: 0, g: 0 }, orientation: { a: 90, b: 0, g: 0 } };
+      const data40 = { ...data90, orientation: { a: 90, b: 0, g: 0 } };
+
+      mapper.processSensor(0, data90);
+      jest.advanceTimersByTime(250);
+      const frame2 = mapper.processSensor(0, data90);
+      expect(frame2.find(e => e.type === 'noteon')).toBeTruthy();
+
+      jest.advanceTimersByTime(100);
+      const frame3 = mapper.processSensor(0, { ...data90, orientation: { a: 40, b: 0, g: 0 } });
+      expect(frame3.find(e => e.type === 'noteoff')).toBeTruthy();
+    });
+
+    test('T-CHORD-008: Volume CC 11 bounded 40-100', () => {
+      mapper.setSlotConfig(0, { mode: 'chordspace', key: 'C', octave: 3 });
+      const low = mapper.processSensor(0, {
+        accel: { x: -10, y: -10, z: 0 },
+        gyro: { a: 0, b: 0, g: 0 },
+        orientation: { a: 90, b: -180, g: 0 }
+      });
+      expect(low.find(e => e.type === 'cc' && e.cc === 11).value).toBeGreaterThanOrEqual(40);
+      expect(low.find(e => e.type === 'cc' && e.cc === 11).value).toBeLessThanOrEqual(100);
+
+      const high = mapper.processSensor(0, {
+        accel: { x: -10, y: -10, z: 0 },
+        gyro: { a: 0, b: 0, g: 0 },
+        orientation: { a: 90, b: 180, g: 0 }
+      });
+      expect(high.find(e => e.type === 'cc' && e.cc === 11).value).toBeGreaterThanOrEqual(40);
+      expect(high.find(e => e.type === 'cc' && e.cc === 11).value).toBeLessThanOrEqual(100);
+    });
+
+    test('T-CHORD-009: Zone change sends note off + note on after 250ms', () => {
+      mapper.setSlotConfig(0, { mode: 'chordspace', key: 'C', octave: 3 });
+      const d1 = { accel: { x: -10, y: -10, z: 0 }, gyro: { a: 0, b: 0, g: 0 }, orientation: { a: 90, b: 0, g: 0 } };
+      mapper.processSensor(0, d1);
+      jest.advanceTimersByTime(250);
+      mapper.processSensor(0, d1);
+
+      const d2 = { ...d1, accel: { x: -5, y: -10, z: 0 } };
+      const offEvents = mapper.processSensor(0, d2);
+      expect(offEvents.find(e => e.type === 'noteoff')).toBeTruthy();
+
+      jest.advanceTimersByTime(250);
+      const onEvents = mapper.processSensor(0, d2);
+      expect(onEvents.find(e => e.type === 'noteon').note).toBe(52);
+    });
+
+    test('T-CHORD-010: Pitch bend from gyro.a', () => {
+      mapper.setSlotConfig(0, { mode: 'chordspace', key: 'C', octave: 3 });
+      const events = mapper.processSensor(0, {
+        accel: { x: -10, y: -10, z: 0 },
+        gyro: { a: 1000, b: 0, g: 0 },
+        orientation: { a: 90, b: 0, g: 0 }
+      });
+      expect(events.find(e => e.type === 'pitchbend').value).toBeGreaterThan(8192);
+      expect(events.find(e => e.type === 'pitchbend').value).toBeLessThan(16384);
+    });
+
+    test('T-CHORD-011: Zero gyro gives center pitch bend', () => {
+      mapper.setSlotConfig(0, { mode: 'chordspace', key: 'C', octave: 3 });
+      const events = mapper.processSensor(0, {
+        accel: { x: -10, y: -10, z: 0 },
+        gyro: { a: 0, b: 0, g: 0 },
+        orientation: { a: 90, b: 0, g: 0 }
+      });
+      expect(events.find(e => e.type === 'pitchbend').value).toBe(8192);
+    });
+
+    test('T-CHORD-012: CC 1 from accel.z', () => {
+      mapper.setSlotConfig(0, { mode: 'chordspace', key: 'C', octave: 3 });
+      const events = mapper.processSensor(0, {
+        accel: { x: -10, y: -10, z: 6 },
+        gyro: { a: 0, b: 0, g: 0 },
+        orientation: { a: 90, b: 0, g: 0 }
+      });
+      expect(events.find(e => e.type === 'cc' && e.cc === 1).value).toBeGreaterThan(63);
+    });
+  });
+
+  describe('T-DRUM: Drums mode', () => {
+    beforeEach(() => {
+      mapper.setSlotConfig(0, { mode: 'drums' });
+      jest.useFakeTimers();
+    });
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    function sendSpike(slot, axis, magnitude) {
+      const accel = { x: 0, y: 0, z: 0 };
+      accel[axis] = magnitude;
+      return mapper.processSensor(slot, {
+        accel,
         gyro: { a: 0, b: 0, g: 0 },
         orientation: { a: 0, b: 0, g: 0 }
       });
-      const state = mapper.getArpState ? mapper.getArpState(0) : mapper._arpState[0];
-      expect(state).toBeTruthy();
-      expect(state.rateMs).toBeLessThanOrEqual(500);
-      expect(state.rateMs).toBeGreaterThanOrEqual(10);
+    }
+
+    test('T-DRUM-001: X spike triggers kick (note 36)', () => {
+      expect(sendSpike(0, 'x', 15).filter(e => e.type === 'noteon' && e.note === 36).length).toBe(1);
     });
 
-    test('T030: arp patterns produce correct sequences', () => {
+    test('T-DRUM-002: Y spike triggers snare (note 38)', () => {
+      expect(sendSpike(0, 'y', 15).filter(e => e.type === 'noteon' && e.note === 38).length).toBe(1);
+    });
+
+    test('T-DRUM-003: Z spike triggers crash (note 49)', () => {
+      expect(sendSpike(0, 'z', 15).filter(e => e.type === 'noteon' && e.note === 49).length).toBe(1);
+    });
+
+    test('T-DRUM-004: Velocity proportional to spike magnitude', () => {
+      const v1 = sendSpike(0, 'x', 10).find(e => e.type === 'noteon' && e.note === 36).velocity;
+      mapper._prevSensor = {};
+      jest.advanceTimersByTime(200);
+      const v2 = sendSpike(0, 'x', 30).find(e => e.type === 'noteon' && e.note === 36).velocity;
+      expect(v2).toBeGreaterThan(v1);
+    });
+
+    test('T-DRUM-005: Cooldown prevents repeated hits', () => {
+      sendSpike(0, 'x', 15);
+      jest.advanceTimersByTime(50);
+      expect(sendSpike(0, 'x', 15).filter(e => e.type === 'noteon' && e.note === 36).length).toBe(0);
+    });
+
+    test('T-DRUM-006: gyro.a maps to CC 4 (hi-hat)', () => {
+      const events = mapper.processSensor(0, {
+        accel: { x: 0, y: 0, z: 0 },
+        gyro: { a: 1000, b: 0, g: 0 },
+        orientation: { a: 0, b: 0, g: 0 }
+      });
+      expect(events.find(e => e.type === 'cc' && e.cc === 4)).toBeTruthy();
+    });
+
+    test('T-DRUM-007: gyro.b selects correct tom (47/48/50)', () => {
       mapper.processSensor(0, {
-        accel: { x: 0, y: 0, z: 20 },
+        accel: { x: 0, y: 0, z: 0 },
         gyro: { a: 0, b: 0, g: 0 },
         orientation: { a: 0, b: 0, g: 0 }
       });
-      const state = mapper.getArpState ? mapper.getArpState(0) : mapper._arpState[0];
+      jest.advanceTimersByTime(200);
 
-      expect(state.notePool.length).toBeGreaterThanOrEqual(5);
-      expect(['up', 'down', 'upDown', 'random', 'pingPong']).toContain(state.pattern);
+      const low = mapper.processSensor(0, {
+        accel: { x: 0, y: 0, z: 0 },
+        gyro: { a: 0, b: -60, g: 0 },
+        orientation: { a: 0, b: 0, g: 0 }
+      });
+      expect(low.find(e => e.type === 'noteon' && e.note === 47)).toBeTruthy();
+      jest.advanceTimersByTime(200);
+
+      mapper._prevSensor = {};
+      mapper._lastTom = {};
+      const baselineForMid = mapper.processSensor(0, {
+        accel: { x: 0, y: 0, z: 0 },
+        gyro: { a: 0, b: 60, g: 0 },
+        orientation: { a: 0, b: 0, g: 0 }
+      });
+      jest.advanceTimersByTime(200);
+      const mid = mapper.processSensor(0, {
+        accel: { x: 0, y: 0, z: 0 },
+        gyro: { a: 0, b: 0, g: 0 },
+        orientation: { a: 0, b: 0, g: 0 }
+      });
+      expect(mid.find(e => e.type === 'noteon' && e.note === 48)).toBeTruthy();
+      jest.advanceTimersByTime(200);
+
+      mapper._prevSensor = {};
+      mapper._lastTom = {};
+      const baselineForHigh = mapper.processSensor(0, {
+        accel: { x: 0, y: 0, z: 0 },
+        gyro: { a: 0, b: -60, g: 0 },
+        orientation: { a: 0, b: 0, g: 0 }
+      });
+      jest.advanceTimersByTime(200);
+      const high = mapper.processSensor(0, {
+        accel: { x: 0, y: 0, z: 0 },
+        gyro: { a: 0, b: 60, g: 0 },
+        orientation: { a: 0, b: 0, g: 0 }
+      });
+      expect(high.find(e => e.type === 'noteon' && e.note === 50)).toBeTruthy();
     });
 
-    test('T031a: arp starts on accelMag threshold and stops on release', () => {
-      let events = mapper.processSensor(0, {
+    test('T-DRUM-008: orientation.a 4 zones via CC 7', () => {
+      const z0 = mapper.processSensor(0, {
         accel: { x: 0, y: 0, z: 0 },
         gyro: { a: 0, b: 0, g: 0 },
-        orientation: { a: 0, b: 90, g: 0 }
+        orientation: { a: 0, b: 0, g: 0 }
       });
-      let state = mapper.getArpState ? mapper.getArpState(0) : mapper._arpState[0];
-      expect(state).toBeTruthy();
-      if (state) expect(state.active).toBe(false);
+      expect(z0.find(e => e.type === 'cc' && e.cc === 7).value).toBe(0);
 
-      events = mapper.processSensor(0, {
-        accel: { x: 0, y: 0, z: 20 },
-        gyro: { a: 0, b: 0, g: 0 },
-        orientation: { a: 0, b: 90, g: 0 }
-      });
-      state = mapper.getArpState ? mapper.getArpState(0) : mapper._arpState[0];
-      if (state) expect(state.active).toBe(true);
-      expect(events.some(e => e.type === 'noteon')).toBe(true);
-
-      events = mapper.processSensor(0, {
+      mapper._prevSensor = {};
+      const z1 = mapper.processSensor(0, {
         accel: { x: 0, y: 0, z: 0 },
         gyro: { a: 0, b: 0, g: 0 },
-        orientation: { a: 0, b: 90, g: 0 }
+        orientation: { a: 100, b: 0, g: 0 }
       });
-      state = mapper.getArpState ? mapper.getArpState(0) : mapper._arpState[0];
-      if (state) expect(state.active).toBe(false);
-      expect(events.some(e => e.type === 'noteoff')).toBe(true);
+      expect(z1.find(e => e.type === 'cc' && e.cc === 7).value).toBe(42);
+
+      mapper._prevSensor = {};
+      const z2 = mapper.processSensor(0, {
+        accel: { x: 0, y: 0, z: 0 },
+        gyro: { a: 0, b: 0, g: 0 },
+        orientation: { a: 200, b: 0, g: 0 }
+      });
+      expect(z2.find(e => e.type === 'cc' && e.cc === 7).value).toBe(84);
+
+      mapper._prevSensor = {};
+      const z3 = mapper.processSensor(0, {
+        accel: { x: 0, y: 0, z: 0 },
+        gyro: { a: 0, b: 0, g: 0 },
+        orientation: { a: 300, b: 0, g: 0 }
+      });
+      expect(z3.find(e => e.type === 'cc' && e.cc === 7).value).toBe(126);
+    });
+
+    test('T-DRUM-009: No Note Off sent', () => {
+      expect(sendSpike(0, 'x', 15).filter(e => e.type === 'noteoff').length).toBe(0);
+    });
+
+    test('T-DRUM-010: Spike below threshold does NOT trigger', () => {
+      expect(sendSpike(0, 'x', 5).filter(e => e.type === 'noteon').length).toBe(0);
+    });
+  });
+
+  describe('T-GEST: GestureCanvas mode', () => {
+    beforeEach(() => {
+      mapper.setSlotConfig(0, { mode: 'gesturecanvas' });
+    });
+
+    test('T-GEST-001: Speed maps to CC 1 + CC 74', () => {
+      const events = mapper.processSensor(0, {
+        accel: { x: 0, y: 0, z: 0 },
+        gyro: { a: 1000, b: 500, g: 0 },
+        orientation: { a: 0, b: 0, g: 0 }
+      });
+      expect(events.find(e => e.type === 'cc' && e.cc === 1)).toBeTruthy();
+      expect(events.find(e => e.type === 'cc' && e.cc === 74)).toBeTruthy();
+    });
+
+    test('T-GEST-002: Direction maps to CC 10 (pan)', () => {
+      const events = mapper.processSensor(0, {
+        accel: { x: 0, y: 0, z: 0 },
+        gyro: { a: 100, b: 0, g: 0 },
+        orientation: { a: 0, b: 0, g: 0 }
+      });
+      expect(events.find(e => e.type === 'cc' && e.cc === 10)).toBeTruthy();
+    });
+
+    test('T-GEST-003: Size maps to CC 91 + CC 93', () => {
+      const events = mapper.processSensor(0, {
+        accel: { x: 15, y: 0, z: 0 },
+        gyro: { a: 0, b: 0, g: 0 },
+        orientation: { a: 0, b: 0, g: 0 }
+      });
+      expect(events.find(e => e.type === 'cc' && e.cc === 91)).toBeTruthy();
+      expect(events.find(e => e.type === 'cc' && e.cc === 93)).toBeTruthy();
+      expect(events.find(e => e.type === 'cc' && e.cc === 91).value).toBe(events.find(e => e.type === 'cc' && e.cc === 93).value);
+    });
+
+    test('T-GEST-004: Complexity maps to CC 71 + CC 16', () => {
+      const events = mapper.processSensor(0, {
+        accel: { x: 0, y: 0, z: 0 },
+        gyro: { a: 100, b: 200, g: 0 },
+        orientation: { a: 0, b: 0, g: 0 }
+      });
+      expect(events.find(e => e.type === 'cc' && e.cc === 71)).toBeTruthy();
+      expect(events.find(e => e.type === 'cc' && e.cc === 16)).toBeTruthy();
+    });
+
+    test('T-GEST-005: Circularity maps to CC 17', () => {
+      const events = mapper.processSensor(0, {
+        accel: { x: 0, y: 0, z: 0 },
+        gyro: { a: 100, b: 0, g: 0 },
+        orientation: { a: 0, b: 0, g: 0 }
+      });
+      expect(events.find(e => e.type === 'cc' && e.cc === 17)).toBeTruthy();
+    });
+
+    test('T-GEST-006: orientation.a maps to CC 7 (scene) with 4 zones', () => {
+      const z0 = mapper.processSensor(0, {
+        accel: { x: 0, y: 0, z: 0 },
+        gyro: { a: 0, b: 0, g: 0 },
+        orientation: { a: 0, b: 0, g: 0 }
+      });
+      expect(z0.find(e => e.type === 'cc' && e.cc === 7).value).toBe(0);
+
+      const z1 = mapper.processSensor(0, {
+        accel: { x: 0, y: 0, z: 0 },
+        gyro: { a: 0, b: 0, g: 0 },
+        orientation: { a: 100, b: 0, g: 0 }
+      });
+      expect(z1.find(e => e.type === 'cc' && e.cc === 7).value).toBe(42);
+
+      const z2 = mapper.processSensor(0, {
+        accel: { x: 0, y: 0, z: 0 },
+        gyro: { a: 0, b: 0, g: 0 },
+        orientation: { a: 200, b: 0, g: 0 }
+      });
+      expect(z2.find(e => e.type === 'cc' && e.cc === 7).value).toBe(84);
+
+      const z3 = mapper.processSensor(0, {
+        accel: { x: 0, y: 0, z: 0 },
+        gyro: { a: 0, b: 0, g: 0 },
+        orientation: { a: 300, b: 0, g: 0 }
+      });
+      expect(z3.find(e => e.type === 'cc' && e.cc === 7).value).toBe(126);
+    });
+
+    test('T-GEST-007: No Note On/Off events', () => {
+      const events = mapper.processSensor(0, {
+        accel: { x: 15, y: 5, z: 8 },
+        gyro: { a: 1000, b: 500, g: 200 },
+        orientation: { a: 90, b: 45, g: 30 }
+      });
+      expect(events.filter(e => e.type === 'noteon').length).toBe(0);
+      expect(events.filter(e => e.type === 'noteoff').length).toBe(0);
+    });
+
+    test('T-GEST-008: Zero gyro → speed CC at 0', () => {
+      const events = mapper.processSensor(0, {
+        accel: { x: 0, y: 0, z: 0 },
+        gyro: { a: 0, b: 0, g: 0 },
+        orientation: { a: 0, b: 0, g: 0 }
+      });
+      expect(events.find(e => e.type === 'cc' && e.cc === 1).value).toBe(0);
+      expect(events.find(e => e.type === 'cc' && e.cc === 74).value).toBe(0);
+    });
+
+    test('T-GEST-009: Circularity = 0 until buffer full', () => {
+      const events = mapper.processSensor(0, {
+        accel: { x: 0, y: 0, z: 0 },
+        gyro: { a: 100, b: 0, g: 0 },
+        orientation: { a: 0, b: 0, g: 0 }
+      });
+      expect(events.find(e => e.type === 'cc' && e.cc === 17).value).toBe(0);
+    });
+
+    test('T-GEST-010: Buffer works per-slot', () => {
+      mapper.setSlotConfig(1, { mode: 'gesturecanvas' });
+      mapper.processSensor(0, {
+        accel: { x: 0, y: 0, z: 0 },
+        gyro: { a: 100, b: 0, g: 0 },
+        orientation: { a: 0, b: 0, g: 0 }
+      });
+      mapper.processSensor(1, {
+        accel: { x: 0, y: 0, z: 0 },
+        gyro: { a: 200, b: 50, g: 0 },
+        orientation: { a: 0, b: 0, g: 0 }
+      });
+      expect(mapper._gyroBuffer[0]).toBeDefined();
+      expect(mapper._gyroBuffer[1]).toBeDefined();
+      expect(mapper._gyroBuffer[0]).not.toBe(mapper._gyroBuffer[1]);
+    });
+  });
+
+  describe('KEY_TO_ROOT', () => {
+    const { KEY_TO_ROOT } = require('../../server-bridge/midi-mapper');
+
+    test('maps C to 0', () => {
+      expect(KEY_TO_ROOT['C']).toBe(0);
+    });
+
+    test('maps enharmonic equivalents', () => {
+      expect(KEY_TO_ROOT['C#']).toBe(KEY_TO_ROOT['Db']);
+      expect(KEY_TO_ROOT['D#']).toBe(KEY_TO_ROOT['Eb']);
+      expect(KEY_TO_ROOT['F#']).toBe(KEY_TO_ROOT['Gb']);
+      expect(KEY_TO_ROOT['G#']).toBe(KEY_TO_ROOT['Ab']);
+      expect(KEY_TO_ROOT['A#']).toBe(KEY_TO_ROOT['Bb']);
+    });
+
+    test('maps all natural keys', () => {
+      expect(KEY_TO_ROOT['D']).toBe(2);
+      expect(KEY_TO_ROOT['E']).toBe(4);
+      expect(KEY_TO_ROOT['F']).toBe(5);
+      expect(KEY_TO_ROOT['G']).toBe(7);
+      expect(KEY_TO_ROOT['A']).toBe(9);
+      expect(KEY_TO_ROOT['B']).toBe(11);
     });
   });
 });
