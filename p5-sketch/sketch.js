@@ -1,7 +1,5 @@
-let dm, ws, audioBus, started = false;
-let brushCanvas;
+let dm, ws, brushCanvas;
 let deviceCount = 0;
-let p5Muted = false;
 let connected = false;
 let statusMessage = 'Disconnected';
 var sprayBrushImg;
@@ -16,13 +14,9 @@ function setup() {
   colorMode(HSB, 360, 100, 100, 1);
   frameRate(CONFIG.frameRate || 30);
 
-  audioBus = new AudioBus();
-  const engine = new SoundEngine(audioBus);
-
-  // Initialize shared brush canvas (WEBGL paint buffer) — single visual mode
   brushCanvas = new BrushCanvas(CONFIG);
 
-  dm = new DeviceManager(engine, CONFIG, brushCanvas);
+  dm = new DeviceManager(CONFIG, brushCanvas);
 
   connectWebSocket();
 }
@@ -40,9 +34,6 @@ function draw() {
       }
     }
   }
-
-  // Process voices with frame-budget governor
-  dm.processAllVoices();
 
   // HUD overlay
   push();
@@ -69,27 +60,7 @@ function draw() {
   fill(0, 0, 100, 0.4);
   text('Cursors: ' + cursorCount + "  ['b' toggle brush]", pad, pad + 76);
 
-  // Skipped slots count (frame-budget governor)
-  const skippedCount = dm._frameBudget ? dm._frameBudget.skippedSlots.size : 0;
-  fill(0, 0, 100, 0.4);
-  text('Skipped: ' + skippedCount, pad, pad + 96);
-
   pop();
-}
-
-function mousePressed() {
-  if (!started) {
-    if (Tone.context && Tone.context.rawContext) {
-      Tone.context.rawContext.latencyHint = 'playback';
-    }
-    Tone.start();
-    if (p5Muted) Tone.Destination.mute = true;
-    started = true;
-    const overlay = document.getElementById('start-overlay');
-    if (overlay) {
-      overlay.style.display = 'none';
-    }
-  }
 }
 
 function connectWebSocket() {
@@ -157,12 +128,6 @@ function handleMessage(msg) {
           if (msg.deviceCount !== undefined) deviceCount = msg.deviceCount;
           break;
         case 'hello':
-          break;
-        case 'mute':
-          p5Muted = msg.value;
-          if (typeof Tone !== 'undefined' && Tone.context) {
-            Tone.Destination.mute = p5Muted;
-          }
           break;
       }
       break;

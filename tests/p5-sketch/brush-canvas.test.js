@@ -807,13 +807,12 @@ describe('BrushCanvas — Phase 9: Pen Up/Down Toggle', () => {
 
   test('T064: device-manager updateConfig sets cursor.penDown', () => {
     const { DeviceManager } = require('../../p5-sketch/device-manager.js');
-    const mockEngine = { createVoice: () => ({}), disposeVoice: () => {} };
     const mockPg = createMockGraphics();
     const brushCanvas = new BrushCanvas(mockConfig, mockPg);
     brushCanvas.createCursor(0, 'classic');
 
-    const config = { slots: [{ soundType: 'synthBasic', sensorMap: {} }] };
-    const dm = new DeviceManager(mockEngine, config, brushCanvas);
+    const config = { slots: [{ soundType: 'synthBasic', sensorMap: {}, brushType: 'classic', color: { h: 0, s: 80, b: 90 } }] };
+    const dm = new DeviceManager(config, brushCanvas);
     dm.assign(0);
 
     dm.updateConfig(0, { penDown: false });
@@ -907,14 +906,13 @@ describe('BrushCanvas — Phase 10: Sensor Modulation Isolation (Base+Offset)', 
 
   test('T068: updateConfig sets _baseHue and resets _hueOffset', () => {
     const { DeviceManager } = require('../../p5-sketch/device-manager.js');
-    const mockEngine = { createVoice: () => ({}), disposeVoice: () => {} };
-    const config = { slots: [{ soundType: 'synthBasic', sensorMap: {}, color: { h: 0, s: 80, b: 90 } }] };
+    const config = { slots: [{ soundType: 'synthBasic', sensorMap: {}, color: { h: 0, s: 80, b: 90 }, brushType: 'classic' }] };
     const mockConfig = { canvasWidth: 800, canvasHeight: 600, maxDevices: 30 };
     const mockPg = createMockGraphics();
     const { BrushCanvas } = require('../../p5-sketch/brush-canvas.js');
     const brushCanvas = new BrushCanvas(mockConfig, mockPg);
     brushCanvas.createCursor(0, 'classic', { h: 0, s: 80, b: 90 });
-    const dm = new DeviceManager(mockEngine, config, brushCanvas);
+    const dm = new DeviceManager(config, brushCanvas);
     dm.assign(0);
     const cursor = brushCanvas.getCursor(0);
 

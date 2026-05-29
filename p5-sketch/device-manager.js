@@ -1,36 +1,17 @@
 (function(global) {
   class DeviceManager {
-    constructor(soundEngine, config, brushCanvas) {
-      this._engine = soundEngine;
+    constructor(config, brushCanvas) {
       this._config = config;
       this._brushCanvas = brushCanvas || null;
-      this._voices = {};
       this._sensorCache = {};
-      this._useFrameBudgetGovernor = true;
-      this._frameBudget = {
-        maxVoiceTimePerFrame: 8,
-        skippedSlots: new Set(),
-        frameDeadline: 0,
-      };
-      this._lastReverbMode = null;
     }
 
     assign(slot) {
-      // Guard: skip if slot already has a cursor (prevents state broadcast from overwriting pen state)
       if (this._brushCanvas && this._brushCanvas.getCursor(slot)) {
         return;
       }
-      if (this._voices[slot]) {
-        this._engine.disposeVoice(this._voices[slot]);
-        delete this._voices[slot];
-      }
       const slotConfig = this._config.slots[slot];
       if (!slotConfig) return;
-      const voice = this._engine.createVoice(slot, slotConfig);
-      if (voice) {
-        this._voices[slot] = voice;
-      }
-      // Create brush cursor
       if (this._brushCanvas) {
         const brushType = slotConfig.brushType || 'classic';
         const color = slotConfig.color || { h: (slot * 12) % 360, s: 80, b: 90 };
@@ -39,11 +20,6 @@
     }
 
     disconnect(slot) {
-      if (this._voices[slot]) {
-        this._engine.disposeVoice(this._voices[slot]);
-        delete this._voices[slot];
-      }
-      // Dispose brush cursor (fades out)
       if (this._brushCanvas) {
         this._brushCanvas.disposeCursor(slot);
       }
@@ -60,105 +36,6 @@
       if (this._brushCanvas) {
         this._brushCanvas.updateCursor(slot, this._sensorCache[slot]);
       }
-
-      if (!this._useFrameBudgetGovernor) {
-        this._processVoiceInline(slot);
-      }
-    }
-
-    _processVoiceInline(slot) {
-      this._processVoice(slot);
-    }
-
-    beginFrame() {
-      this._frameBudget.frameDeadline = performance.now() + this._frameBudget.maxVoiceTimePerFrame;
-      this._frameBudget.skippedSlots.clear();
-    }
-
-    endFrame() {
-      // Reset for next frame; skippedSlots is already cleared in beginFrame
-    }
-
-    processAllVoices() {
-      this.beginFrame();
-
-      if (this._config.reverbScaling && this._engine._audioBus) {
-        const activeCount = this.activeCount;
-        if (activeCount > 15 && this._lastReverbMode !== 'efficient') {
-          this._engine._audioBus.setReverbEfficiencyMode(true);
-          this._lastReverbMode = 'efficient';
-        } else if (activeCount <= 15 && this._lastReverbMode !== 'normal') {
-          this._engine._audioBus.setReverbEfficiencyMode(false);
-          this._lastReverbMode = 'normal';
-        }
-      }
-
-      for (const slot of this.activeSlots) {
-        if (performance.now() > this._frameBudget.frameDeadline) {
-          this._frameBudget.skippedSlots.add(slot);
-          continue;
-        }
-        this._processVoice(slot);
-      }
-      this.endFrame();
-    }
-
-    _processVoice(slot) {
-      const voice = this._voices[slot];
-      if (!voice) return;
-
-      // Pen state-based voice mute
-      const cursor = this._brushCanvas?.getCursor(slot);
-      if (cursor) {
-        const gain = voice.nodes?.gain;
-        if (!cursor.penDown) {
-          if (gain && gain.gain.value !== 0) {
-            gain.gain.rampTo(0, 0.05);
-          }
-          return;
-        } else {
-          if (gain && gain.gain.value === 0) {
-            gain.gain.rampTo(1, 0.1);
-          }
-        }
-      }
-
-      const slotConfig = this._config.slots[slot];
-      if (!slotConfig) return;
-
-      const sensorMap = slotConfig.sensorMap;
-      if (!sensorMap) return;
-
-      const paramNames = Object.keys(sensorMap);
-      if (paramNames.length === 0) return;
-
-      const mapped = {};
-
-      for (const paramName of paramNames) {
-        const paramConfig = sensorMap[paramName];
-        const normRange = SensorMapper.getNormalizationRange(paramConfig.source, paramConfig.axis);
-        const fullConfig = {
-          source: paramConfig.source,
-          axis: paramConfig.axis,
-          range: paramConfig.range,
-          curve: paramConfig.curve || 'linear',
-          normMin: normRange.min,
-          normMax: normRange.max
-        };
-
-        const value = SensorMapper.getSensorValue(this._sensorCache[slot], paramConfig.source, paramConfig.axis, fullConfig);
-
-        if (voice.lastSensorData && voice.lastSensorData[paramName] !== undefined) {
-          const coeff = this._config.smoothCoefficient || 0.3;
-          mapped[paramName] = SensorMapper.smooth(voice.lastSensorData[paramName], value, coeff);
-        } else {
-          mapped[paramName] = value;
-        }
-      }
-
-      voice.lastSensorData = mapped;
-
-      this._engine.updateVoice(voice, mapped, this._config);
     }
 
     updateSensor(slot, sensorType, data) {
@@ -176,10 +53,6 @@
           orientation: this._sensorCache[slot].orientation || {}
         };
         this._brushCanvas.updateCursor(slot, combined);
-      }
-
-      if (!this._useFrameBudgetGovernor) {
-        this._processVoiceInline(slot);
       }
     }
 
@@ -212,28 +85,25 @@
     }
 
     get isSlotActive() {
-      return (slot) => !!this._voices[slot];
+      return (slot) => !!(this._brushCanvas && this._brushCanvas.getCursor(slot));
     }
 
     get activeSlots() {
-      return Object.keys(this._voices).map(Number).sort((a, b) => a - b);
+      if (!this._brushCanvas) return [];
+      return this._brushCanvas.cursors
+        .map((c, i) => c && !c.disconnecting ? i : -1)
+        .filter(i => i >= 0);
     }
 
     get activeCount() {
-      return Object.keys(this._voices).length;
+      return this._brushCanvas ? this._brushCanvas.activeCount : 0;
     }
 
     drawHUD() {
-      // Simplified HUD — rendered via sketch.js overlay instead
     }
 
     disposeAll() {
-      for (const slot of Object.keys(this._voices)) {
-        this._engine.disposeVoice(this._voices[slot]);
-      }
-      this._voices = {};
       this._sensorCache = {};
-      // BrushCanvas cursors fade out independently
     }
   }
 
