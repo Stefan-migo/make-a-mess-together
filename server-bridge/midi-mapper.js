@@ -26,6 +26,7 @@ class MidiMapper {
     this._lastTom = {};
     this._prevDirection = {};
     this._gyroBuffer = {};
+    this._noteStartTime = {};
   }
 
   setGlobalConfig(config) {
@@ -142,8 +143,10 @@ class MidiMapper {
     const semitones = [0, 4, null, 10, 14];
     const toneOffset = semitones[newZone];
 
-    const keyRoot = KEY_TO_ROOT[config.key] || 0;
-    const baseOctave = (config.octave + 1) * 12;
+    const keyStr = config.key || 'C';
+    const keyRoot = KEY_TO_ROOT[keyStr] !== undefined ? KEY_TO_ROOT[keyStr] : 0;
+    const octave = (config.octave !== undefined && config.octave !== null) ? config.octave : 3;
+    const baseOctave = (octave + 1) * 12;
     const rootMidi = baseOctave + keyRoot + rootOffset;
     const toneMidi = toneOffset !== null ? rootMidi + toneOffset : null;
 
@@ -162,7 +165,10 @@ class MidiMapper {
           const fadeVol = Math.round(this._mapRange(elapsed, 0, 200, this._fadeState[slot].startVolume, 0));
           events.push({ type: 'cc', channel, cc: 11, value: this._clamp(fadeVol, 0, 127) });
         } else {
-          events.push({ type: 'noteoff', channel, note: this._fadeState[slot].note, velocity: 0 });
+          const fadeNote = this._fadeState[slot].note;
+          if (typeof fadeNote === 'number' && !isNaN(fadeNote)) {
+            events.push({ type: 'noteoff', channel, note: fadeNote, velocity: 0 });
+          }
           this._fadeState[slot] = null;
           this._lastNote[slot] = { zone: 2, toneMidi: null, gateOpen: false };
         }
@@ -191,6 +197,7 @@ class MidiMapper {
         if (newZone === pending.zone && now - pending.startTime >= 250) {
           if (gateOpen) {
             events.push({ type: 'noteon', channel, note: pending.toneMidi, velocity: volume });
+            this._noteStartTime[slot] = now;
           }
           this._lastNote[slot] = { zone: newZone, toneMidi: pending.toneMidi, gateOpen };
           delete this._pendingZone[slot];
@@ -201,10 +208,14 @@ class MidiMapper {
     }
 
     if (gateOpen !== prevGateOpen && hasActiveNote && toneMidi === prevToneMidi) {
+      const minNoteDuration = 100;
       if (!gateOpen) {
-        events.push({ type: 'noteoff', channel, note: prevToneMidi, velocity: 0 });
+        if (now - (this._noteStartTime[slot] || 0) >= minNoteDuration) {
+          events.push({ type: 'noteoff', channel, note: prevToneMidi, velocity: 0 });
+        }
       } else {
         events.push({ type: 'noteon', channel, note: prevToneMidi, velocity: volume });
+        this._noteStartTime[slot] = now;
       }
       if (this._lastNote[slot]) {
         this._lastNote[slot] = { ...this._lastNote[slot], gateOpen };
@@ -353,16 +364,34 @@ class MidiMapper {
     const config = this._getConfig(slot);
     const mode = config.mode || 'chordspace';
 
+    let events;
     switch (mode) {
       case 'chordspace':
-        return this._processChordSpace(slot, sensorData, config);
+        events = this._processChordSpace(slot, sensorData, config);
+        break;
       case 'drums':
-        return this._processDrums(slot, sensorData, config);
+        events = this._processDrums(slot, sensorData, config);
+        break;
       case 'gesturecanvas':
-        return this._processGestureCanvas(slot, sensorData, config);
+        events = this._processGestureCanvas(slot, sensorData, config);
+        break;
       default:
-        return this._processChordSpace(slot, sensorData, config);
+        events = this._processChordSpace(slot, sensorData, config);
+        break;
     }
+
+    for (const evt of events) {
+      if (evt.note !== undefined && (isNaN(evt.note) || evt.note === null)) {
+        console.warn(`[WARN] Invalid note value for slot ${slot}:`, evt);
+      }
+    }
+
+    return events.filter(e => {
+      if (e.type === 'noteon' || e.type === 'noteoff') {
+        return typeof e.note === 'number' && !isNaN(e.note) && e.note >= 0 && e.note <= 127;
+      }
+      return true;
+    });
   }
 }
 

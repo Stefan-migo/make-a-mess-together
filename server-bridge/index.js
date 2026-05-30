@@ -62,6 +62,9 @@ function parseVerboseArg() {
 const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 
 function noteToName(note) {
+  if (typeof note !== 'number' || isNaN(note) || note < 0 || note > 127) {
+    return '??';
+  }
   const octave = Math.floor(note / 12) - 1;
   return `${NOTE_NAMES[note % 12]}${octave}`;
 }
@@ -476,14 +479,16 @@ function createBridge(options = {}) {
             break;
         }
         if (options.verbose) {
-          const noteName = noteToName(evt.note);
           switch (evt.type) {
             case 'noteon':
-              console.log(`[MIDI] Note On  | CH${evt.channel+1} | Slot ${slot} | ${noteName} (${evt.note}) | vel ${evt.velocity} | ${slotMode}`);
+            case 'noteoff': {
+              if (evt.note !== undefined && !isNaN(evt.note)) {
+                const noteName = noteToName(evt.note);
+                const dir = evt.type === 'noteon' ? 'On ' : 'Off';
+                console.log(`[MIDI] Note ${dir} | CH${evt.channel+1} | Slot ${slot} | ${noteName} (${evt.note})${evt.type === 'noteon' ? ` | vel ${evt.velocity} | ${slotMode}` : ''}`);
+              }
               break;
-            case 'noteoff':
-              console.log(`[MIDI] Note Off | CH${evt.channel+1} | Slot ${slot} | ${noteName} (${evt.note})`);
-              break;
+            }
           }
         }
       }
