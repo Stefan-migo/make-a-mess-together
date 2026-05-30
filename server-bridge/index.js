@@ -55,6 +55,17 @@ function parseMidiOption(name, defaultValue) {
   return val || defaultValue;
 }
 
+function parseVerboseArg() {
+  return process.argv.indexOf('--verbose') !== -1;
+}
+
+const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+
+function noteToName(note) {
+  const octave = Math.floor(note / 12) - 1;
+  return `${NOTE_NAMES[note % 12]}${octave}`;
+}
+
 // ---------------------------------------------------------------------------
 // Bridge Factory
 // ---------------------------------------------------------------------------
@@ -464,6 +475,17 @@ function createBridge(options = {}) {
             midiSender.sendPitchBend(evt.channel, evt.value);
             break;
         }
+        if (options.verbose) {
+          const noteName = noteToName(evt.note);
+          switch (evt.type) {
+            case 'noteon':
+              console.log(`[MIDI] Note On  | CH${evt.channel+1} | Slot ${slot} | ${noteName} (${evt.note}) | vel ${evt.velocity} | ${slotMode}`);
+              break;
+            case 'noteoff':
+              console.log(`[MIDI] Note Off | CH${evt.channel+1} | Slot ${slot} | ${noteName} (${evt.note})`);
+              break;
+          }
+        }
       }
       const musicalState = _generateMusicalState(slot, slotMode, msg, events);
       broadcastToPlayers(musicalState);
@@ -714,12 +736,14 @@ if (require.main === module) {
   const midi = parseMidiArg();
   const midiKey = parseMidiOption('--key', 'C');
   const midiOctave = parseInt(parseMidiOption('--octave', '3'), 10);
+  const verbose = parseVerboseArg();
 
   const bridge = createBridge({
     daw: dawArg,
     midi,
     midiKey,
-    midiOctave
+    midiOctave,
+    verbose
   });
 
   bridge.httpServer.listen(PORT, () => {
@@ -737,6 +761,9 @@ if (require.main === module) {
     }
     if (bridge.midiSender) {
       console.log(`║  MIDI      : ACTIVE (per-phone modes)${' '.repeat(23)}║`);
+    }
+    if (verbose) {
+      console.log(`║  Verbose   : ON${' '.repeat(39)}║`);
     }
     console.log('║                                                    ║');
     console.log(`║  Max slots : ${String(30).padEnd(42)}║`);
