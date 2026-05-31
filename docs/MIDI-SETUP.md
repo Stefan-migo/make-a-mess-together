@@ -73,29 +73,29 @@ Messages vary by the phone's active mode (set per-slot via dashboard or WebSocke
 **ChordSpace:**
 | Message | Channel Range | Sensor Mapping |
 |---------|--------------|---------------|
-| Note On/Off | CH 1–6 | accel.x zone → chord tone, gate from orientation.a |
-| CC 1 | CH 1–6 | accel.z → filter cutoff |
-| CC 2 | CH 1–6 | accel.y → modulation |
-| CC 11 | CH 1–6 | orientation.β → volume (bounded 40–100) |
-| Pitch Bend | CH 1–6 | gyro.a → 14-bit bend |
+| Note On/Off | CH 1–6 (MIDI ch 0–5) | accel.x zone → chord tone, gate from orientation.a |
+| CC 1 | CH 1–6 (MIDI ch 0–5) | accel.z → filter cutoff |
+| CC 2 | CH 1–6 (MIDI ch 0–5) | accel.y → modulation |
+| CC 11 | CH 1–6 (MIDI ch 0–5) | orientation.β → volume (bounded 40–100) |
+| Pitch Bend | CH 1–6 (MIDI ch 0–5) | gyro.a → 14-bit bend |
 
 **Drums:**
 | Message | Channel Range | Sensor Mapping |
 |---------|--------------|---------------|
-| Note On (no Off) | CH 7–8 | accel delta spikes: X=kick(36), Y=snare(38), Z=crash(49); gyro.b delta → tom(47/48/50) |
-| CC 1 | CH 7–8 | accel.z → filter cutoff |
-| CC 4 | CH 7–8 | gyro.a → hi-hat openness |
-| CC 7 | CH 7–8 | orientation.a → pattern zone (4 × 42) |
+| Note On (no Off) | CH 7–8 (MIDI ch 6–7) | accel delta spikes: X=kick(36), Y=snare(38), Z=crash(49); gyro.b delta → tom(47/48/50) |
+| CC 1 | CH 7–8 (MIDI ch 6–7) | accel.z → filter cutoff |
+| CC 4 | CH 7–8 (MIDI ch 6–7) | gyro.a → hi-hat openness |
+| CC 7 | CH 7–8 (MIDI ch 6–7) | orientation.a → pattern zone (4 × 42) |
 
 **GestureCanvas:**
 | Message | Channel Range | Sensor Mapping |
 |---------|--------------|---------------|
-| CC 1 + 74 | CH 9–10 | gyro magnitude → gesture speed |
-| CC 7 | CH 9–10 | orientation.a → scene (4 × 42) |
-| CC 10 | CH 9–10 | gyro direction → pan |
-| CC 16 + 71 | CH 9–10 | direction change → complexity |
-| CC 17 | CH 9–10 | gyro buffer correlation → circularity |
-| CC 91 + 93 | CH 9–10 | accel magnitude → reverb/chorus send |
+| CC 1 + 74 | CH 9–10 (MIDI ch 8–9) | gyro magnitude → gesture speed |
+| CC 7 | CH 9–10 (MIDI ch 8–9) | orientation.a → scene (4 × 42) |
+| CC 10 | CH 9–10 (MIDI ch 8–9) | gyro direction → pan |
+| CC 16 + 71 | CH 9–10 (MIDI ch 8–9) | direction change → complexity |
+| CC 17 | CH 9–10 (MIDI ch 8–9) | gyro buffer correlation → circularity |
+| CC 91 + 93 | CH 9–10 (MIDI ch 8–9) | accel magnitude → reverb/chorus send |
 
 ### Rate
 - **CCs + Pitch Bend**: 30fps continuous stream
@@ -110,9 +110,9 @@ Modes are assigned per-slot via the dashboard or WebSocket `modeChange` messages
 
 | Mode | MIDI Channels | Description |
 |------|--------------|-------------|
-| ChordSpace | CH 1–6 | Each phone plays one chord tone selected by accel.x zone (root/3rd/5th/7th/tension). Chord degree selected by accel.y tilt. Compass gate (orientation.a) silences notes outside active windows. Pitch bend from gyro.a. Volume bounded 40–100. |
-| Drums | CH 7–8 | Percussive hits triggered by accel delta spikes. GM drum map: kick (36) on X spike, snare (38) on Y spike, crash (49) on Z spike. Hi-hat openness via gyro.a (CC 4). Toms (47/48/50) via gyro.b tilt. Pattern zone selector via orientation.a (CC 7). No Note Off — drum VST handles decay. |
-| GestureCanvas | CH 9–10 | Pure continuous CC stream — no notes. Gyro magnitude maps to speed (CC 1 + 74). Gesture direction to pan (CC 10). Accel magnitude (gravity-cancelled) to reverb/chorus send (CC 91/93). Motion complexity to modulation (CC 16/71). Circularity metric from gyro buffer correlation (CC 17). Scene select via orientation.a (CC 7). |
+| ChordSpace | CH 1–6 (MIDI ch 0–5) | Each phone plays one chord tone selected by accel.x zone (root/3rd/5th/7th/tension). Chord degree selected by accel.y tilt. Compass gate (orientation.a) silences notes outside active windows. Pitch bend from gyro.a. Volume bounded 40–100. |
+| Drums | CH 7–8 (MIDI ch 6–7) | Percussive hits triggered by accel delta spikes. GM drum map: kick (36) on X spike, snare (38) on Y spike, crash (49) on Z spike. Hi-hat openness via gyro.a (CC 4). Toms (47/48/50) via gyro.b tilt. Pattern zone selector via orientation.a (CC 7). No Note Off — drum VST handles decay. |
+| GestureCanvas | CH 9–10 (MIDI ch 8–9) | Pure continuous CC stream — no notes. Gyro magnitude maps to speed (CC 1 + 74). Gesture direction to pan (CC 10). Accel magnitude (gravity-cancelled) to reverb/chorus send (CC 91/93). Motion complexity to modulation (CC 16/71). Circularity metric from gyro buffer correlation (CC 17). Scene select via orientation.a (CC 7). |
 
 ---
 

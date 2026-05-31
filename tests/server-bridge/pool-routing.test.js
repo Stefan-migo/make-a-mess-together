@@ -48,9 +48,9 @@ describe('Bridge Pool Routing (Phase 3)', () => {
   let baseUrl;
 
   const POOLS = {
-    chordspace: { channels: [1, 2, 3, 4, 5, 6], max: 6 },
-    drums: { channels: [7, 8], max: 2 },
-    gesturecanvas: { channels: [9, 10], max: 2 }
+    chordspace: { channels: [0, 1, 2, 3, 4, 5], max: 6 },
+    drums: { channels: [6, 7], max: 2 },
+    gesturecanvas: { channels: [8, 9], max: 2 }
   };
 
   beforeEach(() => {
@@ -71,17 +71,17 @@ describe('Bridge Pool Routing (Phase 3)', () => {
 
   test('T-POOL-001: _assignChannel returns first channel of ChordSpace pool', () => {
     bridge = createBridge({ midi: true });
-    expect(bridge._assignChannel(0, 'chordspace')).toBe(1);
+    expect(bridge._assignChannel(0, 'chordspace')).toBe(0);
   });
 
   test('T-POOL-001: _assignChannel returns first channel of Drums pool', () => {
     bridge = createBridge({ midi: true });
-    expect(bridge._assignChannel(0, 'drums')).toBe(7);
+    expect(bridge._assignChannel(0, 'drums')).toBe(6);
   });
 
   test('T-POOL-001: _assignChannel returns first channel of GestureCanvas pool', () => {
     bridge = createBridge({ midi: true });
-    expect(bridge._assignChannel(0, 'gesturecanvas')).toBe(9);
+    expect(bridge._assignChannel(0, 'gesturecanvas')).toBe(8);
   });
 
   test('T-POOL-002: _assignChannel wraps when pool is full', () => {
@@ -90,9 +90,9 @@ describe('Bridge Pool Routing (Phase 3)', () => {
     for (let i = 0; i <= count; i++) {
       const ch = bridge._assignChannel(i, 'chordspace');
       if (i < count) {
-        expect(ch).toBe(i + 1);
+        expect(ch).toBe(i);
       } else {
-        expect(ch).toBe(1);
+        expect(ch).toBe(0);
       }
       const mockWs = createMockWs();
       bridge.connections.set(mockWs, { role: 'sensor', slot: i, mode: 'chordspace', id: i, messageCount: 0, lastSeen: Date.now() });
@@ -176,9 +176,9 @@ describe('Bridge Pool Routing (Phase 3)', () => {
     expect(data.chordspace).toBeDefined();
     expect(data.drums).toBeDefined();
     expect(data.gesturecanvas).toBeDefined();
-    expect(data.chordspace.channels).toEqual([1, 2, 3, 4, 5, 6]);
-    expect(data.drums.channels).toEqual([7, 8]);
-    expect(data.gesturecanvas.channels).toEqual([9, 10]);
+    expect(data.chordspace.channels).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(data.drums.channels).toEqual([6, 7]);
+    expect(data.gesturecanvas.channels).toEqual([8, 9]);
   });
 
   test('T-POOL-005: GET /api/pools reflects active phone count', async () => {
@@ -274,10 +274,10 @@ describe('Bridge Pool Routing (Phase 3)', () => {
     expect(bridge.midiMapper).toBeNull();
   });
 
-  test('T-POOL-008: per-slot mode passed to midiMapper via setSlotConfig', () => {
+  test('T-POOL-008: _handleSensorMessage does NOT re-assign channel (set on connect only)', () => {
     bridge = createBridge({ midi: true });
     const mockWs = { send: jest.fn(), readyState: 1, bufferedAmount: 0 };
-    const info = { role: 'sensor', slot: 0, mode: 'drums', id: 1, messageCount: 0, lastSeen: Date.now() };
+    const info = { role: 'sensor', slot: 0, mode: 'drums', channel: 6, id: 1, messageCount: 0, lastSeen: Date.now() };
     bridge.connections.set(mockWs, info);
 
     const msg = {
@@ -287,9 +287,11 @@ describe('Bridge Pool Routing (Phase 3)', () => {
       orientation: { a: 90, b: 0, g: 0 }
     };
 
+    mockMidiMapperInstance.setSlotConfig.mockClear();
     bridge._handleSensorMessage(mockWs, info, msg);
 
-    // bridge should set slot config mode before processing
-    expect(mockMidiMapperInstance.setSlotConfig).toHaveBeenCalledWith(0, { mode: 'drums', channel: expect.any(Number) });
+    // Channel is assigned once on connect — not re-assigned on every message
+    expect(mockMidiMapperInstance.setSlotConfig).not.toHaveBeenCalled();
+    expect(mockMidiMapperInstance.processSensor).toHaveBeenCalledWith(0, msg);
   });
 });

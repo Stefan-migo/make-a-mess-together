@@ -41,16 +41,16 @@ The phone-sensor-orchestra bridge sends MIDI over an ALSA virtual port using a *
 
 | Track # | Name | MIDI Input | Channel | Recommended VST |
 |---------|------|-----------|---------|-----------------|
-| 1 | Chord 1 | phone-sensor-orchestra | CH 1 | Vital / Serum / Surge XT |
-| 2 | Chord 2 | phone-sensor-orchestra | CH 2 | Vital / Serum / Surge XT |
-| 3 | Chord 3 | phone-sensor-orchestra | CH 3 | Vital / Serum / Surge XT |
-| 4 | Chord 4 | phone-sensor-orchestra | CH 4 | Vital / Serum / Surge XT |
-| 5 | Chord 5 | phone-sensor-orchestra | CH 5 | Vital / Serum / Surge XT |
-| 6 | Chord 6 | phone-sensor-orchestra | CH 6 | Vital / Serum / Surge XT |
-| 7 | Drums 1 | phone-sensor-orchestra | CH 7 | MT Power Drumkit / SSD5.5 / DrumGizmo |
-| 8 | Drums 2 | phone-sensor-orchestra | CH 8 | MT Power Drumkit / SSD5.5 / DrumGizmo |
-| 9 | Texture 1 | phone-sensor-orchestra | CH 9 | Reaktor / Pigments / Absynth / Vital |
-| 10 | Texture 2 | phone-sensor-orchestra | CH 10 | Reaktor / Pigments / Absynth / Vital |
+| 1 | Chord 1 | phone-sensor-orchestra | CH 1 (MIDI ch 0) | Vital / Serum / Surge XT |
+| 2 | Chord 2 | phone-sensor-orchestra | CH 2 (MIDI ch 1) | Vital / Serum / Surge XT |
+| 3 | Chord 3 | phone-sensor-orchestra | CH 3 (MIDI ch 2) | Vital / Serum / Surge XT |
+| 4 | Chord 4 | phone-sensor-orchestra | CH 4 (MIDI ch 3) | Vital / Serum / Surge XT |
+| 5 | Chord 5 | phone-sensor-orchestra | CH 5 (MIDI ch 4) | Vital / Serum / Surge XT |
+| 6 | Chord 6 | phone-sensor-orchestra | CH 6 (MIDI ch 5) | Vital / Serum / Surge XT |
+| 7 | Drums 1 | phone-sensor-orchestra | CH 7 (MIDI ch 6) | MT Power Drumkit / SSD5.5 / DrumGizmo |
+| 8 | Drums 2 | phone-sensor-orchestra | CH 8 (MIDI ch 7) | MT Power Drumkit / SSD5.5 / DrumGizmo |
+| 9 | Texture 1 | phone-sensor-orchestra | CH 9 (MIDI ch 8) | Reaktor / Pigments / Absynth / Vital |
+| 10 | Texture 2 | phone-sensor-orchestra | CH 10 (MIDI ch 9) | Reaktor / Pigments / Absynth / Vital |
 
 ### Detailed Instructions
 
@@ -158,7 +158,7 @@ Each mode sends a unique set of CCs continuously at 30fps:
 
 | Channel | Sensor | Usage |
 |---------|--------|-------|
-| CH 1–6 | gyro.α | ChordSpace only — pitch bend between chord tones |
+| CH 1–6 (MIDI ch 0–5) | gyro.α | ChordSpace only — pitch bend between chord tones |
 
 ### Note On Messages by Mode
 
@@ -172,7 +172,7 @@ Each mode sends a unique set of CCs continuously at 30fps:
 
 ## VST Recommendations Per Track Type
 
-### Synth Tracks (CH 1–6 — ChordSpace)
+### Synth Tracks (CH 1–6, MIDI ch 0–5 — ChordSpace)
 
 | VST | Price | Why |
 |-----|-------|-----|
@@ -183,7 +183,7 @@ Each mode sends a unique set of CCs continuously at 30fps:
 
 **Recommended patch**: Start with a soft pad patch. Set amp envelope to slow attack (200ms) and long release (1-2s) for smooth chord transitions.
 
-### Drum Tracks (CH 7–8 — Drums)
+### Drum Tracks (CH 7–8, MIDI ch 6–7 — Drums)
 
 | VST | Price | Why |
 |-----|-------|-----|
@@ -194,7 +194,7 @@ Each mode sends a unique set of CCs continuously at 30fps:
 
 **Important**: Configure the drum VST to receive on the correct MIDI channel. Most drum VSTs default to "Omni" (all channels) — this works but if you want separation between Drums 1 (CH 7) and Drums 2 (CH 8), set each instance to its specific channel.
 
-### Texture Tracks (CH 9–10 — GestureCanvas)
+### Texture Tracks (CH 9–10, MIDI ch 8–9 — GestureCanvas)
 
 | VST | Price | Why |
 |-----|-------|-----|

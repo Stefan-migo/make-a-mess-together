@@ -81,9 +81,9 @@ function createBridge(options = {}) {
   let connectionIdCounter = 0;
 
   const POOL_CONFIGS = {
-    chordspace: { channels: [1, 2, 3, 4, 5, 6], max: 6 },
-    drums: { channels: [7, 8], max: 2 },
-    gesturecanvas: { channels: [9, 10], max: 2 }
+    chordspace: { channels: [0, 1, 2, 3, 4, 5], max: 6 },
+    drums: { channels: [6, 7], max: 2 },
+    gesturecanvas: { channels: [8, 9], max: 2 }
   };
   const VALID_MODES = Object.keys(POOL_CONFIGS);
 
@@ -219,7 +219,10 @@ function createBridge(options = {}) {
     info.mode = mode;
 
     if (midiMapper) {
-      midiMapper.setSlotConfig(info.slot, { mode });
+      const channel = _assignChannel(info.slot, mode);
+      info.channel = channel;
+      midiMapper.setSlotConfig(info.slot, { mode, channel });
+      console.log(`[modeChange] Slot ${info.slot} → ${mode} → CH ${channel+1}`);
     }
 
     try {
@@ -227,7 +230,6 @@ function createBridge(options = {}) {
     } catch (_) {}
 
     broadcastState();
-    console.log(`[modeChange] Slot ${info.slot} → ${mode}`);
   }
 
   function broadcastToPlayers(msg, exclude = null) {
@@ -391,6 +393,14 @@ function createBridge(options = {}) {
     info.slot = slot;
     info.type = 'sensor';
 
+    if (midiMapper) {
+      const mode = info.mode || 'chordspace';
+      const channel = _assignChannel(slot, mode);
+      info.channel = channel;
+      midiMapper.setSlotConfig(slot, { mode, channel });
+      console.log(`[midi] Slot ${slot} → ${mode} → CH ${channel+1}`);
+    }
+
     const assignMsg = {
       type: 'assigned',
       slot: slot,
@@ -460,8 +470,6 @@ function createBridge(options = {}) {
 
     if (midiSender && midiMapper && msg.type === 'sensor') {
       const slotMode = info.mode || 'chordspace';
-      const channel = _assignChannel(slot, slotMode);
-      midiMapper.setSlotConfig(slot, { mode: slotMode, channel });
       const events = midiMapper.processSensor(slot, msg);
       for (const evt of events) {
         switch (evt.type) {
