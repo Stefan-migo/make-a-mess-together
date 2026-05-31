@@ -226,7 +226,7 @@ function createBridge(options = {}) {
     }
 
     try {
-      ws.send(JSON.stringify({ type: 'modeChanged', mode, channel: _assignChannel(info.slot, mode) }));
+      ws.send(JSON.stringify({ type: 'modeChanged', mode, channel }));
     } catch (_) {}
 
     broadcastState();
