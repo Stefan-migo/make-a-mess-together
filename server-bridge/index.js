@@ -546,6 +546,11 @@ function createBridge(options = {}) {
     if (msg.octave !== undefined) config.octave = Math.min(Math.max(Math.round(msg.octave), 1), 7);
     if (msg.bpm !== undefined) config.bpm = Math.min(Math.max(msg.bpm, 20), 300);
     if (msg.noteThreshold !== undefined) config.noteThreshold = Math.min(Math.max(Math.round(msg.noteThreshold), 1), 127);
+    if (msg.midiRate !== undefined) {
+      const rate = Math.max(1, Math.min(10, Math.round(msg.midiRate)));
+      midiMapper.setRate(rate);
+      console.log(`[midiConfig] MIDI rate set to 1:${rate} (every ${rate} frames)`);
+    }
 
     if (Object.keys(config).length > 0) {
       midiMapper.setGlobalConfig(config);
@@ -555,7 +560,8 @@ function createBridge(options = {}) {
 
     // Notify dashboard that MIDI is active with current config
     try {
-      ws.send(JSON.stringify({ type: 'system', event: 'midiStatus', active: true }));
+      const rate = midiMapper.getRate();
+      ws.send(JSON.stringify({ type: 'system', event: 'midiStatus', active: true, midiRate: rate }));
     } catch (_) {}
   }
 

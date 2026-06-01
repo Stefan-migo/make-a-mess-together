@@ -27,6 +27,9 @@ class MidiMapper {
     this._prevDirection = {};
     this._gyroBuffer = {};
     this._noteStartTime = {};
+    this._lastCC = {};
+    this._midiRate = 1;
+    this._frameCounter = {};
   }
 
   setGlobalConfig(config) {
@@ -76,6 +79,24 @@ class MidiMapper {
   _sensorToPitchBend(value, inMin, inMax) {
     const mapped = this._mapRange(value, inMin, inMax, 0, 16383);
     return Math.round(this._clamp(mapped, 0, 16383));
+  }
+
+  _shouldSendCC(slot, cc, newValue, threshold = 3) {
+    const key = `${slot}_${cc}`;
+    const last = this._lastCC[key];
+    if (last === undefined || Math.abs(newValue - last) >= threshold) {
+      this._lastCC[key] = newValue;
+      return true;
+    }
+    return false;
+  }
+
+  setRate(framesBetween) {
+    this._midiRate = Math.max(1, Math.min(30, Math.round(framesBetween)));
+  }
+
+  getRate() {
+    return this._midiRate;
   }
 
   _getAccelXZone(accelX) {
@@ -163,7 +184,8 @@ class MidiMapper {
         const elapsed = now - this._fadeState[slot].startTime;
         if (elapsed < 200) {
           const fadeVol = Math.round(this._mapRange(elapsed, 0, 200, this._fadeState[slot].startVolume, 0));
-          events.push({ type: 'cc', channel, cc: 11, value: this._clamp(fadeVol, 0, 127) });
+          const cc11fade = this._clamp(fadeVol, 0, 127);
+          if (this._shouldSendCC(slot, 11, cc11fade)) events.push({ type: 'cc', channel, cc: 11, value: cc11fade });
         } else {
           const fadeNote = this._fadeState[slot].note;
           if (typeof fadeNote === 'number' && !isNaN(fadeNote)) {
@@ -172,9 +194,12 @@ class MidiMapper {
           this._fadeState[slot] = null;
           this._lastNote[slot] = { zone: 2, toneMidi: null, gateOpen: false };
         }
-        events.push({ type: 'cc', channel, cc: 1, value: this._sensorToCC(accelZ, -12, 12) });
-        events.push({ type: 'cc', channel, cc: 2, value: this._sensorToCC(accelY, -12, 12) });
-        events.push({ type: 'cc', channel, cc: 11, value: this._clamp(volume, 40, 100) });
+        const cc1fade = this._sensorToCC(accelZ, -12, 12);
+        if (this._shouldSendCC(slot, 1, cc1fade)) events.push({ type: 'cc', channel, cc: 1, value: cc1fade });
+        const cc2fade = this._sensorToCC(accelY, -12, 12);
+        if (this._shouldSendCC(slot, 2, cc2fade)) events.push({ type: 'cc', channel, cc: 2, value: cc2fade });
+        const cc11fade2 = this._clamp(volume, 40, 100);
+        if (this._shouldSendCC(slot, 11, cc11fade2)) events.push({ type: 'cc', channel, cc: 11, value: cc11fade2 });
         events.push({ type: 'pitchbend', channel, value: this._sensorToPitchBend(gyroA, -2000, 2000) });
         return events;
       }
@@ -222,9 +247,11 @@ class MidiMapper {
       }
     }
 
-    events.push({ type: 'cc', channel, cc: 1, value: this._sensorToCC(accelZ, -12, 12) });
-    events.push({ type: 'cc', channel, cc: 2, value: this._sensorToCC(accelY, -12, 12) });
-    events.push({ type: 'cc', channel, cc: 11, value: volume });
+    const cc1val = this._sensorToCC(accelZ, -12, 12);
+    if (this._shouldSendCC(slot, 1, cc1val)) events.push({ type: 'cc', channel, cc: 1, value: cc1val });
+    const cc2val = this._sensorToCC(accelY, -12, 12);
+    if (this._shouldSendCC(slot, 2, cc2val)) events.push({ type: 'cc', channel, cc: 2, value: cc2val });
+    if (this._shouldSendCC(slot, 11, volume)) events.push({ type: 'cc', channel, cc: 11, value: volume });
 
     const pitchBend = this._sensorToPitchBend(gyroA, -2000, 2000);
     events.push({ type: 'pitchbend', channel, value: pitchBend });
@@ -276,7 +303,7 @@ class MidiMapper {
     const orientG = data.orientation?.g ?? 0;
 
     const hhOpen = this._sensorToCC(gyroA, -2000, 2000);
-    events.push({ type: 'cc', channel, cc: 4, value: hhOpen });
+    if (this._shouldSendCC(slot, 4, hhOpen)) events.push({ type: 'cc', channel, cc: 4, value: hhOpen });
 
     const tomNote = gyroB < -30 ? 47 : gyroB < 30 ? 48 : 50;
     const deltaGyroB = Math.abs(gyroB - (prev.gyro?.b ?? 0));
@@ -288,8 +315,10 @@ class MidiMapper {
 
     const patternZone = Math.floor(((orientA % 360) + 360) % 360 / 90) % 4;
 
-    events.push({ type: 'cc', channel, cc: 1, value: this._sensorToCC(accelZ, -12, 12) });
-    events.push({ type: 'cc', channel, cc: 7, value: patternZone * 42 });
+    const drumCc1 = this._sensorToCC(accelZ, -12, 12);
+    if (this._shouldSendCC(slot, 1, drumCc1)) events.push({ type: 'cc', channel, cc: 1, value: drumCc1 });
+    const drumCc7 = patternZone * 42;
+    if (this._shouldSendCC(slot, 7, drumCc7)) events.push({ type: 'cc', channel, cc: 7, value: drumCc7 });
 
     this._prevSensor[slot] = { ...data };
 
@@ -310,25 +339,25 @@ class MidiMapper {
 
     const speed = Math.sqrt(gyroA * gyroA + gyroB * gyroB + gyroG * gyroG);
     const speedCC = Math.min(127, Math.round(speed / 2000 * 127));
-    events.push({ type: 'cc', channel, cc: 1, value: speedCC });
-    events.push({ type: 'cc', channel, cc: 74, value: speedCC });
+    if (this._shouldSendCC(slot, 1, speedCC)) events.push({ type: 'cc', channel, cc: 1, value: speedCC });
+    if (this._shouldSendCC(slot, 74, speedCC)) events.push({ type: 'cc', channel, cc: 74, value: speedCC });
 
     const direction = Math.atan2(gyroB, gyroA);
     const panCC = Math.round(((direction + Math.PI) / (Math.PI * 2)) * 127);
-    events.push({ type: 'cc', channel, cc: 10, value: panCC });
+    if (this._shouldSendCC(slot, 10, panCC)) events.push({ type: 'cc', channel, cc: 10, value: panCC });
 
     const mag = Math.sqrt(accelX * accelX + accelY * accelY + accelZ * accelZ);
     const size = Math.max(0, mag - 9.8);
     const reverbCC = Math.min(127, Math.round(size / 20 * 127));
-    events.push({ type: 'cc', channel, cc: 91, value: reverbCC });
-    events.push({ type: 'cc', channel, cc: 93, value: reverbCC });
+    if (this._shouldSendCC(slot, 91, reverbCC)) events.push({ type: 'cc', channel, cc: 91, value: reverbCC });
+    if (this._shouldSendCC(slot, 93, reverbCC)) events.push({ type: 'cc', channel, cc: 93, value: reverbCC });
 
     const prevDir = this._prevDirection[slot] || 0;
     const complexity = Math.abs(direction - prevDir);
     this._prevDirection[slot] = direction;
     const complexityCC = Math.min(127, Math.round(complexity / Math.PI * 127));
-    events.push({ type: 'cc', channel, cc: 71, value: complexityCC });
-    events.push({ type: 'cc', channel, cc: 16, value: complexityCC });
+    if (this._shouldSendCC(slot, 71, complexityCC)) events.push({ type: 'cc', channel, cc: 71, value: complexityCC });
+    if (this._shouldSendCC(slot, 16, complexityCC)) events.push({ type: 'cc', channel, cc: 16, value: complexityCC });
 
     if (!this._gyroBuffer[slot]) this._gyroBuffer[slot] = [];
     this._gyroBuffer[slot].push({ a: gyroA, b: gyroB, time: Date.now() });
@@ -352,15 +381,20 @@ class MidiMapper {
         circularity = Math.round(this._mapRange(this._clamp(r, -1, 1), -1, 1, 0, 127));
       }
     }
-    events.push({ type: 'cc', channel, cc: 17, value: circularity });
+    if (this._shouldSendCC(slot, 17, circularity)) events.push({ type: 'cc', channel, cc: 17, value: circularity });
 
     const scene = Math.floor((((orientA % 360) + 360) % 360) / 90) % 4;
-    events.push({ type: 'cc', channel, cc: 7, value: scene * 42 });
+    const sceneCC = scene * 42;
+    if (this._shouldSendCC(slot, 7, sceneCC)) events.push({ type: 'cc', channel, cc: 7, value: sceneCC });
 
     return events;
   }
 
   processSensor(slot, sensorData) {
+    if (!this._frameCounter[slot]) this._frameCounter[slot] = 0;
+    this._frameCounter[slot]++;
+    if (this._frameCounter[slot] % this._midiRate !== 0) return [];
+
     const config = this._getConfig(slot);
     const mode = config.mode || 'chordspace';
 

@@ -154,6 +154,45 @@
       text-align: center;
       padding: 1rem;
     }
+    .control-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .control-row:last-child { border-bottom: none; }
+    .control-label { flex: 1; }
+    .control-title {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 500;
+      margin-bottom: 0.25rem;
+    }
+    .control-desc {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+    .control-slider { flex: 1; min-width: 200px; }
+    .control-slider input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      background: var(--bg);
+      height: 4px;
+      border-radius: 2px;
+      cursor: pointer;
+    }
+    .slider-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.6875rem;
+      color: var(--text-dim);
+      margin-top: 0.25rem;
+    }
+    #midiRateValue {
+      color: var(--accent);
+      font-weight: 600;
+    }
     @media (max-width: 480px) {
       .container { padding: 1rem; }
       .card { padding: 1.25rem; }
@@ -200,6 +239,26 @@
           Active Devices
         </div>
         <div class="device-list" id="deviceList"></div>
+      </div>
+    </div>
+
+    <div class="card" id="midiSettings">
+      <h1>🎛️ MIDI</h1>
+      <p class="subtitle">Reduce MIDI message rate to prevent VST overload</p>
+
+      <div class="control-row">
+        <div class="control-label">
+          <span class="control-title">Message Rate</span>
+          <span class="control-desc">Lower = less CPU load</span>
+        </div>
+        <div class="control-slider">
+          <input type="range" id="midiRateSlider" min="1" max="10" value="1" step="1">
+          <div class="slider-labels">
+            <span>30 fps</span>
+            <span id="midiRateValue">Every frame</span>
+            <span>3 fps</span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -294,6 +353,23 @@
       };
     }
 
+    // MIDI Rate Slider
+    const midiSlider = document.getElementById('midiRateSlider');
+    const midiRateValue = document.getElementById('midiRateValue');
+
+    function updateMidiRateLabel(rate) {
+      const fps = Math.round(30 / rate);
+      midiRateValue.textContent = rate === 1 ? 'Every frame' : `1:${rate} (${fps} fps)`;
+    }
+
+    midiSlider.addEventListener('input', (e) => {
+      const rate = parseInt(e.target.value);
+      updateMidiRateLabel(rate);
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'midiConfig', midiRate: rate }));
+      }
+    });
+
     function handleMessage(msg) {
       if (msg.type === 'system' && msg.event === 'count') {
         // Update counts
@@ -322,6 +398,13 @@
 
       if (msg.type === 'system' && msg.event === 'disconnect') {
         // Device disconnected
+      }
+
+      if (msg.type === 'system' && msg.event === 'midiStatus') {
+        if (msg.midiRate !== undefined) {
+          midiSlider.value = msg.midiRate;
+          updateMidiRateLabel(msg.midiRate);
+        }
       }
     }
 
